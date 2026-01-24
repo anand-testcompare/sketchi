@@ -1,8 +1,7 @@
 // Generate architecture diagram from implementation plan
 // Run: bun run packages/backend/experiments/generate-arch-diagram.ts
 
-import { gateway } from "@ai-sdk/gateway";
-import { generateText } from "ai";
+import { gateway, generateText } from "ai";
 import dagre from "dagre";
 import { chromium } from "playwright";
 import { repairJsonClosure } from "./json-repair";

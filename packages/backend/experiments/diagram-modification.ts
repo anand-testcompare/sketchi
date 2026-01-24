@@ -1,8 +1,7 @@
 // Experiment 0.3: Diagram Modification
 // Run: AI_GATEWAY_API_KEY=xxx bun run packages/backend/experiments/diagram-modification.ts
 
-import { gateway } from "@ai-sdk/gateway";
-import { generateText } from "ai";
+import { gateway, generateText } from "ai";
 import { repairJsonClosure } from "./json-repair";
 
 const AI_GATEWAY_API_KEY = process.env.AI_GATEWAY_API_KEY;

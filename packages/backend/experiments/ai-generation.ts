@@ -1,8 +1,7 @@
 // Experiment 0.2: AI Generation Quality
 // Run: AI_GATEWAY_API_KEY=xxx bun run packages/backend/experiments/ai-generation.ts
 
-import { gateway } from "@ai-sdk/gateway";
-import { generateText } from "ai";
+import { gateway, generateText } from "ai";
 import { repairJsonClosure } from "./json-repair";
 
 const AI_GATEWAY_API_KEY = process.env.AI_GATEWAY_API_KEY;
