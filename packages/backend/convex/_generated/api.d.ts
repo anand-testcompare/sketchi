@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as export_ from "../export.js";
 import type * as healthCheck from "../healthCheck.js";
 
 import type {
@@ -17,6 +18,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  export: typeof export_;
   healthCheck: typeof healthCheck;
 }>;
 
