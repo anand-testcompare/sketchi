@@ -2,6 +2,10 @@
 
 ## Phase 0: Experiments (ground truth = code + artifacts)
 
+### Dev server gate (required for every TODO)
+- [ ] Run `bun dev` from repo root; confirm Next dev on `:3001` + Convex typecheck passes
+- [ ] If `:3001` is in use, stop the old process (e.g. `lsof -nP -iTCP:3001 -sTCP:LISTEN`)
+
 ### Evidence + completion tracking
 - [x] **0.1 Share Link Round-Trip** - migrated to Convex + tested; experiment removed
 - [ ] **0.2 AI Generation Quality** - no artifacts on disk; decide schema + add artifact or convert to Convex test + delete experiment

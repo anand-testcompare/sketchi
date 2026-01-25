@@ -264,7 +264,7 @@ test("share link actions round-trip elements", async () => {
     url: created.url,
     elementsCount: parsed.elements.length,
     elementTypes: parsed.elements.map(
-      (element) => (element as { type?: string }).type ?? "unknown"
+      (element: { type?: string }) => element.type ?? "unknown"
     ),
     appStateKeys: Object.keys(parsed.appState ?? {}),
     createdAt: new Date().toISOString(),

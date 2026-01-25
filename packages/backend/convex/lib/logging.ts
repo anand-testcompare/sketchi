@@ -1,4 +1,5 @@
-import { customAction } from "convex-helpers/server/customFunctions";
+import type { PropertyValidators, Validator } from "convex/values";
+import type { ActionCtx } from "../_generated/server";
 import { action } from "../_generated/server";
 
 export interface LoggingOptions<Args, Result> {
@@ -6,17 +7,23 @@ export interface LoggingOptions<Args, Result> {
   formatResult?: (result: Result) => Record<string, unknown>;
 }
 
-export function createLoggedAction<
-  Args extends Record<string, unknown>,
-  Result,
->(name: string, options: LoggingOptions<Args, Result> = {}) {
-  const { formatArgs, formatResult } = options;
-  const builder = customAction(action, {
-    input: async (ctx, args) => ({ ctx, args }),
-  });
+type ActionDefinition<Args extends object, Result> = {
+  args?: PropertyValidators | Validator<any, "required", any> | void;
+  returns?: PropertyValidators | Validator<any, "required", any> | void;
+  handler: (ctx: ActionCtx, args: Args) => Promise<Result> | Result;
+};
 
-  return (definition: Parameters<typeof builder>[0]) =>
-    builder({
+export function createLoggedAction<Args extends object, Result>(
+  name: string,
+  options: LoggingOptions<Args, Result> = {}
+) {
+  const { formatArgs, formatResult } = options;
+
+  return (definition: ActionDefinition<Args, Result>) => {
+    const handler =
+      definition.handler as (ctx: ActionCtx, args: Args) => Promise<Result>;
+
+    return action({
       ...definition,
       handler: async (ctx, args) => {
         const start = Date.now();
@@ -27,7 +34,7 @@ export function createLoggedAction<
         });
 
         try {
-          const result = (await definition.handler(ctx, args)) as Result;
+          const result = (await handler(ctx, args as Args)) as Result;
           console.log("[convex.action.success]", {
             name,
             durationMs: Date.now() - start,
@@ -43,5 +50,6 @@ export function createLoggedAction<
           throw error;
         }
       },
-    });
+    } as Parameters<typeof action>[0]);
+  };
 }
