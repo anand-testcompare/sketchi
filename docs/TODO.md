@@ -22,6 +22,10 @@
 - [ ] Two-stage pipeline: LLM **only** for domain analysis → `IntermediateFormat`; deterministic renderer **only** for diagram elements
 - [ ] Delete direct LLM-to-diagram element generation path
 - [ ] Standardize arrow format to LLM-friendly relation-only input + deterministic layout/edges
+- [ ] Define `IntermediateFormat` for Excalidraw agent:
+  - nodes: id, label, kind, description?, metadata?
+  - edges: fromId, toId, label?
+  - graphOptions: diagramType + optional global edge/style overrides (apply to whole graph)
 
 ### Prompt library
 - [ ] Create `packages/backend/prompts/` with per-domain prompt files (Palantir, GCP, etc.)
