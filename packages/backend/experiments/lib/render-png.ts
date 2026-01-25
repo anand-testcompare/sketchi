@@ -347,6 +347,10 @@ export async function renderDiagramToPngRemote(
     );
   }
   const context = contexts[0];
+  if (!context) {
+    await browser.close();
+    throw new Error("Failed to get default context from Browserbase session.");
+  }
 
   // Handle edge case: page may not exist yet in the context
   const page = context.pages()[0] ?? (await context.newPage());
