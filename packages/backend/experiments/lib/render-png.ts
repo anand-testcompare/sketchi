@@ -2,10 +2,45 @@ import { type Browser, chromium } from "playwright";
 import { applyLayout, type LayoutedDiagram } from "./layout";
 import type { Diagram } from "./schemas";
 
-const EXCALIDRAW_POST_URL = "https://json.excalidraw.com/api/v2/post/";
-const IV_BYTE_LENGTH = 12;
-const AES_GCM_KEY_LENGTH = 128;
 const RENDER_TIMEOUT_MS = 30_000;
+
+const EXPORT_HARNESS_HTML = `
+<!DOCTYPE html>
+<html>
+<head>
+  <script type="importmap">
+  { "imports": { "@excalidraw/excalidraw": "https://esm.sh/@excalidraw/excalidraw@0.18.0" } }
+  </script>
+</head>
+<body>
+  <div id="status">Loading...</div>
+  <script type="module">
+    import { exportToBlob } from "https://esm.sh/@excalidraw/excalidraw@0.18.0";
+    
+    window.exportPng = async function(elements, options = {}) {
+      const { scale = 2, padding = 20, background = true, backgroundColor = "#ffffff" } = options;
+      
+      const blob = await exportToBlob({
+        elements,
+        appState: { exportScale: scale, exportBackground: background, viewBackgroundColor: backgroundColor },
+        files: null,
+        exportPadding: padding,
+        mimeType: "image/png",
+      });
+      
+      const buffer = await blob.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+      return btoa(binary);
+    };
+    
+    window.exportReady = true;
+    document.getElementById('status').textContent = 'Ready';
+  </script>
+</body>
+</html>
+`;
 
 let browser: Browser | null = null;
 
@@ -213,56 +248,6 @@ function convertLayoutedToExcalidraw(
   return elements;
 }
 
-async function uploadToExcalidraw(
-  elements: Record<string, unknown>[]
-): Promise<string> {
-  const payload = JSON.stringify({
-    type: "excalidraw",
-    version: 2,
-    source: "sketchi",
-    elements,
-    appState: { viewBackgroundColor: "#ffffff" },
-    files: {},
-  });
-  const encodedPayload = new TextEncoder().encode(payload);
-
-  const key = await crypto.subtle.generateKey(
-    { name: "AES-GCM", length: AES_GCM_KEY_LENGTH },
-    true,
-    ["encrypt", "decrypt"]
-  );
-
-  const iv = crypto.getRandomValues(new Uint8Array(IV_BYTE_LENGTH));
-  const encrypted = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
-    key,
-    encodedPayload
-  );
-
-  const combined = new Uint8Array(iv.length + encrypted.byteLength);
-  combined.set(iv);
-  combined.set(new Uint8Array(encrypted), iv.length);
-
-  const response = await fetch(EXCALIDRAW_POST_URL, {
-    method: "POST",
-    body: combined,
-  });
-
-  if (!response.ok) {
-    throw new Error(
-      `Upload failed: ${response.status} ${await response.text()}`
-    );
-  }
-
-  const { id } = (await response.json()) as { id: string };
-  const jwk = await crypto.subtle.exportKey("jwk", key);
-  if (!jwk.k) {
-    throw new Error("Failed to export encryption key");
-  }
-
-  return `https://excalidraw.com/#json=${id},${jwk.k}`;
-}
-
 export interface RenderResult {
   png: Buffer;
   durationMs: number;
@@ -272,6 +257,7 @@ export interface RenderResult {
 export interface RenderOptions {
   chartType?: string;
   scale?: number;
+  padding?: number;
   background?: boolean;
 }
 
@@ -279,46 +265,44 @@ export async function renderDiagramToPng(
   diagram: Diagram,
   options: RenderOptions = {}
 ): Promise<RenderResult> {
-  const { chartType = "flowchart" } = options;
+  const {
+    chartType = "flowchart",
+    scale = 2,
+    padding = 20,
+    background = true,
+  } = options;
   const start = Date.now();
 
   const layouted = applyLayout(diagram, chartType);
   const elements = convertLayoutedToExcalidraw(layouted);
-  const shareUrl = await uploadToExcalidraw(elements);
 
   const browser = await getBrowser();
   const context = await browser.newContext();
   const page = await context.newPage();
 
   try {
-    await page.goto(shareUrl, { timeout: RENDER_TIMEOUT_MS });
-    await page.waitForLoadState("networkidle", { timeout: RENDER_TIMEOUT_MS });
+    await page.setContent(EXPORT_HARNESS_HTML);
+    await page.waitForFunction("window.exportReady === true", {
+      timeout: RENDER_TIMEOUT_MS,
+    });
 
-    const canvas = page.locator("canvas").first();
-    await canvas.waitFor({ state: "visible", timeout: RENDER_TIMEOUT_MS });
-
-    await page.waitForFunction(
-      () => {
-        const body = document.body.innerText;
-        return !(body.includes("Loading scene") || body.includes("Loading"));
+    const base64Png = (await page.evaluate(
+      async ({ elements, options }) => {
+        // biome-ignore lint/suspicious/noExplicitAny: window.exportPng is injected by harness
+        return await (window as any).exportPng(elements, options);
       },
-      { timeout: RENDER_TIMEOUT_MS }
-    );
+      {
+        elements,
+        options: { scale, padding, background, backgroundColor: "#ffffff" },
+      }
+    )) as string;
 
-    await page.waitForTimeout(1500);
-
-    // Excalidraw shortcuts: Shift+1 = zoom to fit, Cmd+- = zoom out for margin
-    await page.keyboard.press("Shift+Digit1");
-    await page.waitForTimeout(500);
-    await page.keyboard.press("Meta+-");
-    await page.waitForTimeout(300);
-
-    const png = await canvas.screenshot({ type: "png" });
+    const png = Buffer.from(base64Png, "base64");
 
     return {
       png,
       durationMs: Date.now() - start,
-      shareUrl,
+      shareUrl: "",
     };
   } finally {
     await context.close();
