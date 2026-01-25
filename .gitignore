@@ -60,3 +60,9 @@ temp
 /opencode.json
 /opencode.json.bak
 # END Ruler Generated Files
+
+#override auto generated exclude
+!AGENTS.md
+/.claude/settings.json
+/.claude/settings.json.bak
+/.claude/settings.local.json

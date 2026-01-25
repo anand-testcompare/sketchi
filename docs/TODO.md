@@ -62,4 +62,5 @@
 - [ ] Phase 4: Icon Library Generator
 - [ ] Phase 5: Export Rendering (PNG/SVG/PDF via Daytona)
 - [ ] Web UI with embedded Excalidraw canvas
-- [ ] Auth integration with WorkOS AuthKit
+- [ ] Auth integration with WorkOS 
+- [ ] explore viability of cloudflare browser rendering api. need new experiment
