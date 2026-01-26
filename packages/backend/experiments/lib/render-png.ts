@@ -1,10 +1,10 @@
 import Browserbase from "@browserbasehq/sdk";
-import { type Browser, chromium } from "playwright";
+import { type Browser, chromium, type Page } from "playwright";
 import { chromium as chromiumCore } from "playwright-core";
 import { applyLayout, type LayoutedDiagram } from "./layout";
 import type { Diagram } from "./schemas";
 
-const RENDER_TIMEOUT_MS = 30_000;
+const RENDER_TIMEOUT_MS = 60_000;
 
 const EXPORT_HARNESS_HTML = `
 <!DOCTYPE html>
@@ -55,6 +55,15 @@ async function getBrowser(): Promise<Browser> {
     browser = await chromium.launch({ headless: true });
   }
   return browser;
+}
+
+async function loadExportHarness(page: Page): Promise<void> {
+  await page.goto("about:blank");
+  await page.evaluate((html) => {
+    document.open();
+    document.write(html);
+    document.close();
+  }, EXPORT_HARNESS_HTML);
 }
 
 export async function closeBrowser(): Promise<void> {
@@ -275,15 +284,15 @@ export async function renderDiagramToPng(
   } = options;
   const start = Date.now();
 
-  const layouted = applyLayout(diagram, chartType);
-  const elements = convertLayoutedToExcalidraw(layouted);
+    const layouted = applyLayout(diagram, chartType);
+    const elements = convertLayoutedToExcalidraw(layouted);
 
-  const browser = await getBrowser();
-  const context = await browser.newContext();
-  const page = await context.newPage();
+    const browser = await getBrowser();
+    const context = await browser.newContext();
+    const page = await context.newPage();
 
   try {
-    await page.setContent(EXPORT_HARNESS_HTML);
+    await loadExportHarness(page);
     await page.waitForFunction("window.exportReady === true", {
       timeout: RENDER_TIMEOUT_MS,
     });
@@ -332,7 +341,7 @@ export async function renderDiagramToPngRemote(
   const session = await bb.sessions.create({ projectId });
 
   const browser = await chromiumCore.connectOverCDP(session.connectUrl, {
-    timeout: 30_000,
+    timeout: RENDER_TIMEOUT_MS,
   });
 
   // CRITICAL: Use existing context, do NOT create new context
@@ -360,9 +369,9 @@ export async function renderDiagramToPngRemote(
     const layouted = applyLayout(diagram, chartType);
     const elements = convertLayoutedToExcalidraw(layouted);
 
-    await page.setContent(EXPORT_HARNESS_HTML);
+    await loadExportHarness(page);
     await page.waitForFunction("window.exportReady === true", {
-      timeout: 30_000,
+      timeout: RENDER_TIMEOUT_MS,
     });
 
     const base64Png = (await page.evaluate(

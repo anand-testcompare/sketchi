@@ -21,6 +21,7 @@ interface VitestSummary {
 const outputDir = join(process.cwd(), "test-results");
 const vitestPath = join(outputDir, "vitest.json");
 const shareLinksPath = join(outputDir, "excalidraw-share-links.json");
+const browserbasePath = join(outputDir, "browserbase-export.json");
 const summaryPath = join(outputDir, "summary.md");
 
 function formatDuration(ms?: number) {
@@ -47,6 +48,17 @@ const shareLinks = await readJsonIfExists<{
   appStateKeys: string[];
   createdAt: string;
 }>(shareLinksPath);
+
+const browserbase = await readJsonIfExists<{
+  scenario: string;
+  status: string;
+  outputFile?: string;
+  dimensions?: string;
+  format?: string;
+  durationMs?: number;
+  error?: string;
+  createdAt: string;
+}>(browserbasePath);
 
 await mkdir(outputDir, { recursive: true });
 
@@ -91,7 +103,21 @@ if (shareLinks) {
   lines.push("");
 }
 
-if (!vitest && !shareLinks) {
+if (browserbase) {
+  lines.push("## Browserbase Export");
+  lines.push("");
+  lines.push(`- Scenario: ${browserbase.scenario}`);
+  lines.push(`- Status: ${browserbase.status}`);
+  lines.push(`- Output file: ${browserbase.outputFile ?? "n/a"}`);
+  lines.push(`- Dimensions: ${browserbase.dimensions ?? "n/a"}`);
+  lines.push(`- Format: ${browserbase.format ?? "n/a"}`);
+  lines.push(`- Duration: ${browserbase.durationMs ?? "n/a"}ms`);
+  lines.push(`- Error: ${browserbase.error ?? "none"}`);
+  lines.push(`- Created: ${browserbase.createdAt}`);
+  lines.push("");
+}
+
+if (!vitest && !shareLinks && !browserbase) {
   lines.push("No test results found.");
   lines.push("");
 }

@@ -15,7 +15,7 @@
 - [x] **Optimization suite** - artifacts in `packages/backend/experiments/output/optimization_*`
 - [x] **Visual grading** - artifacts in `packages/backend/experiments/output/visual-grading_*` with summary.json
 - [ ] **Visual grading (Convex test)** - migrate to Convex test, call vision LLM, run concurrently, keep artifacts + summary
-- [ ] **Browserbase export** - artifact name mismatch (`spike-browserbase-export.png` vs expected `browserbase-test.png`); re-run or update script; output name derived from test name (no "spike")
+- [x] **Browserbase export** - Convex test writes PNG + report in `packages/backend/test-results/` (output name derived from test name)
 
 ### Unify + simplify (delete, don’t rename)
 - [ ] Delete duplicate schema: keep ONE diagram schema and remove the other

@@ -8,7 +8,7 @@ Convex usage today
 Evidence on disk (artifacts)
 - optimization runs: `packages/backend/experiments/output/optimization_2026-01-24_17-00-50`, `packages/backend/experiments/output/optimization_2026-01-24_17-30-14`, `packages/backend/experiments/output/optimization_2026-01-25_06-29-42`, `packages/backend/experiments/output/optimization_2026-01-25_06-53-18`
 - visual grading runs: `packages/backend/experiments/output/visual-grading_2026-01-25_02-15-21`, `packages/backend/experiments/output/visual-grading_2026-01-25_06-33-38`, `packages/backend/experiments/output/visual-grading_2026-01-25_06-53-19` (includes `summary.json` with 3/3 pass)
-- Browserbase export artifact present: `packages/backend/experiments/output/spike-browserbase-export.png` (not produced by current test script name)
+- Browserbase export evidence: Convex test writes PNG + report in `packages/backend/test-results/` (file name derived from test name)
 - no `summary.json` under any `optimization_*` folder (expected by `packages/backend/experiments/tests/test-diagram-optimization.ts`)
 
 ## Standalone experiment scripts
@@ -77,10 +77,9 @@ Evidence on disk (artifacts)
 
 ### PNG render/export (local + Browserbase)
 - experiment files: `packages/backend/experiments/lib/render-png.ts`, `packages/backend/experiments/lib/layout.ts`, `packages/backend/experiments/lib/schemas.ts`
-- test files: `packages/backend/experiments/tests/test-browserbase-export.ts`
+- test files: `packages/backend/convex/export.test.ts`
 - convex migration: yes (`renderDiagramToPngRemote` used by `packages/backend/convex/export.ts`)
-- evidence: `packages/backend/experiments/output/spike-browserbase-export.png` present (file name differs from test script output)
-- unknowns/risks: Browserbase test script writes `browserbase-test.png`, but no such file checked in
+- evidence: `packages/backend/test-results/browserbase-export.json` + PNG output
 
 ### Visual grading (PNG + LLM)
 - experiment files: `packages/backend/experiments/lib/grading.ts`, `packages/backend/experiments/lib/render-png.ts`, `packages/backend/experiments/lib/output.ts`, `packages/backend/experiments/lib/ai-utils.ts`, `packages/backend/experiments/agents/content-analyzer.ts`, `packages/backend/experiments/agents/diagram-generator.ts`, `packages/backend/experiments/lib/schemas.ts`, `packages/backend/experiments/lib/prompts.ts`
