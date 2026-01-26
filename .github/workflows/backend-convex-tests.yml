@@ -33,6 +33,14 @@ jobs:
         working-directory: packages/backend
         run: bun run test:report
 
+      - name: Publish test summary
+        if: always()
+        run: |
+          echo "## Backend Test Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          cat packages/backend/test-results/summary.md | tee /tmp/backend-summary.md
+          cat /tmp/backend-summary.md >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload test artifacts
         if: always()
         uses: actions/upload-artifact@v4
