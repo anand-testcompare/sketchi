@@ -19,13 +19,11 @@ import {
 } from "@/lib/icon-library/svg-validate";
 
 const defaultStyleSettings: StyleSettings = {
-  strokeColor: "#1f2937",
-  backgroundColor: "transparent",
-  strokeWidth: 1,
-  strokeStyle: "solid",
-  fillStyle: "solid",
-  roughness: 0,
-  opacity: 100,
+  fillStyle: "hachure",
+  roughness: 1,
+  bowing: 1,
+  randomize: true,
+  pencilFilter: false,
 };
 
 interface PageProps {
@@ -53,7 +51,18 @@ export default function LibraryEditorPage({ params }: PageProps) {
   useEffect(() => {
     if (data?.library) {
       setLibraryName(data.library.name);
-      setStyleSettings(data.library.styleSettings as StyleSettings);
+      const dbSettings = data.library.styleSettings as unknown as Record<
+        string,
+        unknown
+      >;
+      setStyleSettings({
+        fillStyle: (dbSettings.fillStyle ||
+          "hachure") as StyleSettings["fillStyle"],
+        roughness: (dbSettings.roughness as number) ?? 1,
+        bowing: 1,
+        randomize: true,
+        pencilFilter: false,
+      });
     }
   }, [data?.library]);
 
@@ -76,7 +85,15 @@ export default function LibraryEditorPage({ params }: PageProps) {
       await updateLibrary({
         id: libraryId,
         name: libraryName.trim() || "Untitled Library",
-        styleSettings,
+        styleSettings: {
+          strokeColor: "#000000",
+          backgroundColor: "transparent",
+          strokeWidth: 2,
+          strokeStyle: "solid" as const,
+          fillStyle: styleSettings.fillStyle,
+          roughness: styleSettings.roughness,
+          opacity: 100,
+        } as unknown as Parameters<typeof updateLibrary>[0]["styleSettings"],
       });
       toast.success("Library updated.");
     } catch (error) {

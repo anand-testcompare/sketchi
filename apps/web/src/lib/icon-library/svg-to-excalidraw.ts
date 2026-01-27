@@ -130,13 +130,11 @@ export interface ExcalidrawElement {
 }
 
 export interface StyleSettings {
-  strokeColor: string;
-  backgroundColor: string;
-  strokeWidth: number;
-  strokeStyle: "solid" | "dashed" | "dotted";
   fillStyle: "solid" | "hachure" | "cross-hatch" | "zigzag";
   roughness: number;
-  opacity: number;
+  bowing: number;
+  randomize: boolean;
+  pencilFilter: boolean;
 }
 
 export const svgToExcalidrawElements = (
@@ -214,15 +212,15 @@ export const svgToExcalidrawElements = (
         isDeleted: false,
         id: randomId(),
         fillStyle: styleSettings.fillStyle,
-        strokeWidth: styleSettings.strokeWidth,
-        strokeStyle: styleSettings.strokeStyle,
+        strokeWidth: 2,
+        strokeStyle: "solid",
         roughness: styleSettings.roughness,
-        opacity: styleSettings.opacity,
+        opacity: 100,
         angle: 0,
         x: elementX,
         y: elementY,
-        strokeColor: styleSettings.strokeColor,
-        backgroundColor: styleSettings.backgroundColor,
+        strokeColor: "#000000",
+        backgroundColor: "transparent",
         width: localBounds.maxX - localBounds.minX,
         height: localBounds.maxY - localBounds.minY,
         seed: randomInt(),
