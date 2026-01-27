@@ -17,6 +17,7 @@
     "clsx": "^2.1.1",
     "convex": "catalog:",
     "dotenv": "catalog:",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.546.0",
     "next": "^16.1.1",
     "next-themes": "^0.4.6",
@@ -32,6 +33,7 @@
   "devDependencies": {
     "@sketchi/config": "workspace:*",
     "@tailwindcss/postcss": "^4.1.10",
+    "@types/jszip": "^3.4.1",
     "@types/node": "^20",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",

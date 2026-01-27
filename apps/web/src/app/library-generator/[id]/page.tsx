@@ -24,6 +24,8 @@ const defaultStyleSettings: StyleSettings = {
   bowing: 1,
   randomize: true,
   pencilFilter: false,
+  showLabel: true,
+  labelSize: 16,
 };
 
 interface PageProps {
@@ -62,6 +64,8 @@ export default function LibraryEditorPage({ params }: PageProps) {
         bowing: 1,
         randomize: true,
         pencilFilter: false,
+        showLabel: (dbSettings.showLabel as boolean) ?? true,
+        labelSize: (dbSettings.labelSize as number) ?? 16,
       });
     }
   }, [data?.library]);

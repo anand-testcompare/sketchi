@@ -99,8 +99,7 @@ const computeBounds = (points: { x: number; y: number }[]) => {
   return { minX, minY, maxX, maxY };
 };
 
-export interface ExcalidrawElement {
-  type: "freedraw";
+interface ExcalidrawBaseElement {
   version: number;
   versionNonce: number;
   isDeleted: boolean;
@@ -119,15 +118,39 @@ export interface ExcalidrawElement {
   height: number;
   seed: number;
   groupIds: string[];
-  strokeSharpness: "sharp" | "round";
-  boundElements: unknown[];
+  roundness: { type: number; value?: number } | null;
+  frameId: string | null;
+  boundElements: { id: string; type: "arrow" | "text" }[] | null;
   updated: number;
   link: string | null;
+  locked: boolean;
+  index: string | null;
+}
+
+export interface ExcalidrawFreedrawElement extends ExcalidrawBaseElement {
+  type: "freedraw";
   points: [number, number][];
   lastCommittedPoint: [number, number] | null;
   simulatePressure: boolean;
   pressures: number[];
 }
+
+export interface ExcalidrawTextElement extends ExcalidrawBaseElement {
+  type: "text";
+  text: string;
+  fontSize: number;
+  fontFamily: number;
+  textAlign: "left" | "center" | "right";
+  verticalAlign: "top" | "middle" | "bottom";
+  containerId: string | null;
+  originalText: string;
+  autoResize: boolean;
+  lineHeight: number;
+}
+
+export type ExcalidrawElement =
+  | ExcalidrawFreedrawElement
+  | ExcalidrawTextElement;
 
 export interface StyleSettings {
   fillStyle: "solid" | "hachure" | "cross-hatch" | "zigzag";
@@ -135,12 +158,24 @@ export interface StyleSettings {
   bowing: number;
   randomize: boolean;
   pencilFilter: boolean;
+  showLabel: boolean;
+  labelSize: number;
 }
+
+const SVG_EXTENSION_REGEX = /\.svg$/i;
+const SEPARATOR_REGEX = /[-_]/g;
+
+const formatLabelText = (filename: string) =>
+  filename
+    .replace(SVG_EXTENSION_REGEX, "")
+    .replace(SEPARATOR_REGEX, " ")
+    .trim();
 
 export const svgToExcalidrawElements = (
   svgText: string,
-  styleSettings: StyleSettings
-) => {
+  styleSettings: StyleSettings,
+  iconName?: string
+): ExcalidrawElement[] => {
   const parser = new DOMParser();
   const doc = parser.parseFromString(svgText, "image/svg+xml");
   const parsedSvg = doc.querySelector("svg") as SVGSVGElement | null;
@@ -188,53 +223,113 @@ export const svgToExcalidrawElements = (
     const groupId = randomId();
     const updated = Date.now();
 
-    return pathPoints.map((points) => {
-      const scaledPoints = points.map((point) => ({
-        x: (point.x - bounds.minX) * scale,
-        y: (point.y - bounds.minY) * scale,
-      }));
+    const scaledWidth = width * scale;
+    const scaledHeight = height * scale;
 
-      const localBounds = computeBounds(scaledPoints);
-      const elementX = localBounds.minX;
-      const elementY = localBounds.minY;
-      const elementPoints = scaledPoints.map(
-        (point) =>
-          [point.x - localBounds.minX, point.y - localBounds.minY] as [
-            number,
-            number,
-          ]
-      );
+    const freedrawElements: ExcalidrawFreedrawElement[] = pathPoints.map(
+      (points) => {
+        const scaledPoints = points.map((point) => ({
+          x: (point.x - bounds.minX) * scale,
+          y: (point.y - bounds.minY) * scale,
+        }));
 
-      return {
-        type: "freedraw",
+        const localBounds = computeBounds(scaledPoints);
+        const elementX = localBounds.minX;
+        const elementY = localBounds.minY;
+        const elementPoints = scaledPoints.map(
+          (point) =>
+            [point.x - localBounds.minX, point.y - localBounds.minY] as [
+              number,
+              number,
+            ]
+        );
+
+        return {
+          type: "freedraw",
+          version: 1,
+          versionNonce: randomInt(),
+          isDeleted: false,
+          id: randomId(),
+          fillStyle: styleSettings.fillStyle,
+          strokeWidth: 2,
+          strokeStyle: "solid",
+          roughness: styleSettings.roughness,
+          opacity: 100,
+          angle: 0,
+          x: elementX,
+          y: elementY,
+          strokeColor: "#000000",
+          backgroundColor: "transparent",
+          width: localBounds.maxX - localBounds.minX,
+          height: localBounds.maxY - localBounds.minY,
+          seed: randomInt(),
+          groupIds: [groupId],
+          roundness: null,
+          frameId: null,
+          boundElements: null,
+          updated,
+          link: null,
+          locked: false,
+          index: null,
+          points: elementPoints,
+          lastCommittedPoint: null,
+          simulatePressure: true,
+          pressures: [],
+        } satisfies ExcalidrawFreedrawElement;
+      }
+    );
+
+    const elements: ExcalidrawElement[] = [...freedrawElements];
+
+    if (styleSettings.showLabel && iconName) {
+      const labelText = formatLabelText(iconName);
+      const fontSize = styleSettings.labelSize;
+      const lineHeight = 1.25;
+      const textHeight = fontSize * lineHeight;
+      const labelPadding = 8;
+
+      const textElement: ExcalidrawTextElement = {
+        type: "text",
         version: 1,
         versionNonce: randomInt(),
         isDeleted: false,
         id: randomId(),
-        fillStyle: styleSettings.fillStyle,
-        strokeWidth: 2,
+        fillStyle: "solid",
+        strokeWidth: 1,
         strokeStyle: "solid",
-        roughness: styleSettings.roughness,
+        roughness: 0,
         opacity: 100,
         angle: 0,
-        x: elementX,
-        y: elementY,
+        x: scaledWidth / 2 - (labelText.length * fontSize * 0.5) / 2,
+        y: scaledHeight + labelPadding,
         strokeColor: "#000000",
         backgroundColor: "transparent",
-        width: localBounds.maxX - localBounds.minX,
-        height: localBounds.maxY - localBounds.minY,
+        width: labelText.length * fontSize * 0.5,
+        height: textHeight,
         seed: randomInt(),
         groupIds: [groupId],
-        strokeSharpness: "sharp",
-        boundElements: [],
+        roundness: null,
+        frameId: null,
+        boundElements: null,
         updated,
         link: null,
-        points: elementPoints,
-        lastCommittedPoint: null,
-        simulatePressure: true,
-        pressures: [],
-      } satisfies ExcalidrawElement;
-    });
+        locked: false,
+        index: null,
+        text: labelText,
+        fontSize,
+        fontFamily: 1,
+        textAlign: "center",
+        verticalAlign: "top",
+        containerId: null,
+        originalText: labelText,
+        autoResize: true,
+        lineHeight: lineHeight as number & { _brand: "unitlessLineHeight" },
+      };
+
+      elements.push(textElement);
+    }
+
+    return elements;
   } finally {
     container?.remove();
   }
