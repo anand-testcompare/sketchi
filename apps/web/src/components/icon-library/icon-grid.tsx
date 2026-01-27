@@ -127,7 +127,7 @@ export default function IconGrid({
       <div
         className="grid gap-3"
         style={{
-          gridTemplateColumns: `repeat(auto-fill, minmax(${iconSize}px, 1fr))`,
+          gridTemplateColumns: `repeat(auto-fit, minmax(${iconSize}px, ${iconSize * 2}px))`,
         }}
       >
         {icons.map((icon, index) => {
@@ -171,12 +171,6 @@ export default function IconGrid({
                     )}
                   </button>
                 )}
-              </div>
-
-              <div className="flex items-center justify-between gap-2">
-                <span className="truncate text-[10px] text-muted-foreground">
-                  {icon.name}
-                </span>
               </div>
 
               {!isEditMode && (

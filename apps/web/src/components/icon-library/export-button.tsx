@@ -1,7 +1,14 @@
+import JSZip from "jszip";
+import { ChevronDown, Download } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   type StyleSettings,
   svgToExcalidrawElements,
@@ -25,21 +32,20 @@ const randomId = () => {
   return Math.random().toString(36).slice(2, 10);
 };
 
+const sanitizeFileName = (name: string) =>
+  name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "library";
+
 export default function ExportButton({
   libraryName,
   icons,
   styleSettings,
 }: ExportButtonProps) {
   const [isExporting, setIsExporting] = useState(false);
-  let exportLabel = "Export .excalidrawlib";
 
-  if (icons.length === 0) {
-    exportLabel = "Export disabled (no icons)";
-  } else if (isExporting) {
-    exportLabel = "Exporting…";
-  }
-
-  const handleExport = async () => {
+  const handleExportExcalidraw = async () => {
     if (icons.length === 0) {
       toast.error("Add at least one icon before exporting.");
       return;
@@ -65,7 +71,11 @@ export default function ExportButton({
           throw new Error(`Failed to load ${icon.name}.`);
         }
         const svgText = await response.text();
-        const elements = svgToExcalidrawElements(svgText, styleSettings);
+        const elements = svgToExcalidrawElements(
+          svgText,
+          styleSettings,
+          icon.name
+        );
 
         libraryItems.push({
           id: randomId(),
@@ -87,12 +97,7 @@ export default function ExportButton({
         type: "application/vnd.excalidrawlib+json",
       });
 
-      const fileName = `${
-        libraryName
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-+|-+$/g, "") || "library"
-      }.excalidrawlib`;
+      const fileName = `${sanitizeFileName(libraryName)}.excalidrawlib`;
 
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -111,14 +116,72 @@ export default function ExportButton({
     }
   };
 
+  const handleExportZip = async () => {
+    if (icons.length === 0) {
+      toast.error("Add at least one icon before exporting.");
+      return;
+    }
+
+    setIsExporting(true);
+
+    try {
+      const zip = new JSZip();
+
+      for (const icon of icons) {
+        if (!icon.url) {
+          throw new Error(`Missing icon URL for ${icon.name}.`);
+        }
+        const response = await fetch(icon.url);
+        if (!response.ok) {
+          throw new Error(`Failed to load ${icon.name}.`);
+        }
+        const svgText = await response.text();
+        const safeName = sanitizeFileName(icon.name);
+        zip.file(`${safeName}.svg`, svgText);
+      }
+
+      const blob = await zip.generateAsync({ type: "blob" });
+      const fileName = `${sanitizeFileName(libraryName)}.zip`;
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success(`Downloaded ${icons.length} icons as ZIP.`);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Export failed unexpectedly.";
+      toast.error(message);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const disabled = isExporting || icons.length === 0;
+
   return (
-    <Button
-      disabled={isExporting || icons.length === 0}
-      onClick={handleExport}
-      size="sm"
-      type="button"
-    >
-      {exportLabel}
-    </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        className="inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground text-sm shadow-xs transition-all hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
+        disabled={disabled}
+      >
+        <Download className="size-4" />
+        {isExporting ? "Exporting..." : "Export"}
+        <ChevronDown className="size-4" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem disabled={disabled} onClick={handleExportExcalidraw}>
+          Export as .excalidrawlib
+        </DropdownMenuItem>
+        <DropdownMenuItem disabled={disabled} onClick={handleExportZip}>
+          Export as ZIP (SVGs)
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

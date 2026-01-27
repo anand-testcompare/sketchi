@@ -8,8 +8,8 @@ const DEFAULT_STYLE_SETTINGS = {
   backgroundColor: "transparent",
   strokeWidth: 1,
   strokeStyle: "solid",
-  fillStyle: "solid",
-  roughness: 0,
+  fillStyle: "hachure",
+  roughness: 1,
   opacity: 100,
 } as const;
 

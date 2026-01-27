@@ -11,8 +11,39 @@ interface SketchyIconPreviewProps {
   svgUrl: string | null;
 }
 
+const SVG_EXTENSION_REGEX = /\.svg$/i;
+const SEPARATOR_REGEX = /[-_]/g;
+
+const formatLabelText = (filename: string) =>
+  filename
+    .replace(SVG_EXTENSION_REGEX, "")
+    .replace(SEPARATOR_REGEX, " ")
+    .trim();
+
 const FIXED_SEED = 12_345;
 const DEBOUNCE_MS = 300;
+
+function makeSvgScalable(container: HTMLElement): void {
+  const svg = container.querySelector("svg");
+  if (!svg) {
+    return;
+  }
+
+  const width = svg.getAttribute("width");
+  const height = svg.getAttribute("height");
+
+  if (!svg.getAttribute("viewBox") && width && height) {
+    const w = Number.parseFloat(width);
+    const h = Number.parseFloat(height);
+    if (!(Number.isNaN(w) || Number.isNaN(h))) {
+      svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+    }
+  }
+
+  svg.removeAttribute("width");
+  svg.removeAttribute("height");
+  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+}
 
 export default function SketchyIconPreview({
   name,
@@ -119,6 +150,7 @@ export default function SketchyIconPreview({
       converterRef.current.pencilFilter = debouncedSettings.pencilFilter;
 
       converterRef.current.sketch();
+      makeSvgScalable(containerRef.current);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to render sketch");
@@ -133,22 +165,35 @@ export default function SketchyIconPreview({
     );
   }
 
+  const showLabel = debouncedSettings.showLabel;
+  const labelText = formatLabelText(name);
+
   return (
-    <div className="relative flex aspect-square items-center justify-center rounded border bg-muted/30">
-      {isLoading && (
-        <span className="text-[10px] text-muted-foreground">Loading...</span>
+    <div className="relative flex flex-col rounded border bg-muted/30">
+      <div className="relative flex aspect-square items-center justify-center">
+        {isLoading && (
+          <span className="text-[10px] text-muted-foreground">Loading...</span>
+        )}
+        {error && (
+          <span className="text-[10px] text-destructive" title={error}>
+            Error
+          </span>
+        )}
+        <div
+          aria-label={`Sketchy preview of ${name}`}
+          className="flex h-full w-full items-center justify-center p-2 [&>svg]:h-[70%] [&>svg]:w-[70%]"
+          ref={containerRef}
+          role="img"
+        />
+      </div>
+      {showLabel && (
+        <div
+          className="border-t px-2 py-1 text-center font-[family-name:var(--font-caveat)]"
+          style={{ fontSize: `${debouncedSettings.labelSize}px` }}
+        >
+          {labelText}
+        </div>
       )}
-      {error && (
-        <span className="text-[10px] text-destructive" title={error}>
-          Error
-        </span>
-      )}
-      <div
-        aria-label={`Sketchy preview of ${name}`}
-        className="flex h-full w-full items-center justify-center p-2 [&>svg]:h-full [&>svg]:w-full"
-        ref={containerRef}
-        role="img"
-      />
     </div>
   );
 }
