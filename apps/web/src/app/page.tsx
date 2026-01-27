@@ -1,44 +1,42 @@
 "use client";
-import { api } from "@sketchi/backend/convex/_generated/api";
-import { useQuery } from "convex/react";
-
-const TITLE_TEXT = `
- ██████╗ ███████╗████████╗████████╗███████╗██████╗
- ██╔══██╗██╔════╝╚══██╔══╝╚══██╔══╝██╔════╝██╔══██╗
- ██████╔╝█████╗     ██║      ██║   █████╗  ██████╔╝
- ██╔══██╗██╔══╝     ██║      ██║   ██╔══╝  ██╔══██╗
- ██████╔╝███████╗   ██║      ██║   ███████╗██║  ██║
- ╚═════╝ ╚══════╝   ╚═╝      ╚═╝   ╚══════╝╚═╝  ╚═╝
-
- ████████╗    ███████╗████████╗ █████╗  ██████╗██╗  ██╗
- ╚══██╔══╝    ██╔════╝╚══██╔══╝██╔══██╗██╔════╝██║ ██╔╝
-    ██║       ███████╗   ██║   ███████║██║     █████╔╝
-    ██║       ╚════██║   ██║   ██╔══██║██║     ██╔═██╗
-    ██║       ███████║   ██║   ██║  ██║╚██████╗██║  ██╗
-    ╚═╝       ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
- `;
+import { Wand2 } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
 
 export default function Home() {
-  const healthCheck = useQuery(api.healthCheck.get);
-
   return (
-    <div className="container mx-auto max-w-3xl px-4 py-2">
-      <pre className="overflow-x-auto font-mono text-sm">{TITLE_TEXT}</pre>
-      <div className="grid gap-6">
-        <section className="rounded-lg border p-4">
-          <h2 className="mb-2 font-medium">API Status</h2>
-          <div className="flex items-center gap-2">
-            <div
-              className={`h-2 w-2 rounded-full ${healthCheck === "OK" ? "bg-green-500" : healthCheck === undefined ? "bg-orange-400" : "bg-red-500"}`}
-            />
-            <span className="text-muted-foreground text-sm">
-              {healthCheck === undefined
-                ? "Checking..."
-                : healthCheck === "OK"
-                  ? "Connected"
-                  : "Error"}
-            </span>
-          </div>
+    <div className="container mx-auto max-w-5xl px-4 py-8">
+      <div className="mx-auto mb-12 flex justify-center">
+        <Image
+          alt="Sketchi"
+          height={160}
+          priority
+          src="/icons/logo-wide.svg"
+          width={480}
+        />
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <Link
+          className="group rounded-lg border p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md"
+          href="/library-generator"
+        >
+          <h2 className="mb-2 font-medium text-sm">Icon Library Generator</h2>
+          <p className="mb-4 text-muted-foreground text-xs">
+            Create icon libraries and export .excalidrawlib files.
+          </p>
+          <span className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 font-[family-name:var(--font-caveat)] text-lg text-primary-foreground shadow-sm transition-colors group-hover:bg-primary/90">
+            <Wand2 className="size-5" />
+            Open
+          </span>
+        </Link>
+
+        <section className="flex items-center justify-center rounded-lg border border-dashed p-4">
+          <span className="text-muted-foreground text-xs">Coming soon</span>
+        </section>
+
+        <section className="flex items-center justify-center rounded-lg border border-dashed p-4">
+          <span className="text-muted-foreground text-xs">Coming soon</span>
         </section>
       </div>
     </div>
