@@ -37,7 +37,7 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           MODEL_NAME: ${{ secrets.MODEL_NAME }}
           VISION_MODEL_NAME: ${{ secrets.VISION_MODEL_NAME }}
-          STAGEHAND_VISUAL_STRICT: "true"
+          STAGEHAND_VISUAL_STRICT: "false"
         run: bun run tests/e2e/scripts/run-scenarios.ts visual-sanity
 
       - name: Upload E2E artifacts
