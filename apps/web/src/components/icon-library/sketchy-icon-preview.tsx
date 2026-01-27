@@ -108,14 +108,11 @@ export default function SketchyIconPreview({
 
       converterRef.current.svg = svg;
       converterRef.current.roughConfig = {
-        fill:
-          debouncedSettings.backgroundColor === "transparent"
-            ? undefined
-            : debouncedSettings.backgroundColor,
+        fill: undefined,
         fillStyle: debouncedSettings.fillStyle,
         roughness: debouncedSettings.roughness,
-        stroke: debouncedSettings.strokeColor,
-        strokeWidth: debouncedSettings.strokeWidth,
+        stroke: "#000000",
+        strokeWidth: 2,
       };
 
       converterRef.current.sketch();
@@ -134,10 +131,7 @@ export default function SketchyIconPreview({
   }
 
   return (
-    <div
-      className="relative flex aspect-square items-center justify-center rounded border bg-muted/30"
-      style={{ opacity: styleSettings.opacity / 100 }}
-    >
+    <div className="relative flex aspect-square items-center justify-center rounded border bg-muted/30">
       {isLoading && (
         <span className="text-[10px] text-muted-foreground">Loading...</span>
       )}
