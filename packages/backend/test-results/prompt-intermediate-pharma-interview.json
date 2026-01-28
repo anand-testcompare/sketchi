@@ -1,0 +1,100 @@
+{
+  "scenario": "SME interview transcript (pharma batch disposition)",
+  "prompt": "I'm interviewing a pharma manufacturing SME about their batch disposition process. \nSME: First, we receive the batch from production with all the test data. \nThen QA reviews the Certificate of Analysis. \nIf it passes specs, we move to final review. \nIf it fails, we either investigate for retesting or reject the batch outright. \nFinal review is done by QA Manager who makes the disposition decision. \nAfter approval, it goes to packaging.",
+  "shareUrl": "https://excalidraw.com/#json=O-3OKkn9CBniu4jWLqlg-,yynmlQxJkW9B1okuEuVbbA",
+  "intermediate": {
+    "edges": [
+      {
+        "fromId": "receive-batch",
+        "toId": "review-coa"
+      },
+      {
+        "fromId": "review-coa",
+        "toId": "check-specs"
+      },
+      {
+        "fromId": "check-specs",
+        "label": "Yes",
+        "toId": "final-review"
+      },
+      {
+        "fromId": "check-specs",
+        "label": "Fail",
+        "toId": "investigation"
+      },
+      {
+        "fromId": "check-specs",
+        "label": "Fail (Outright)",
+        "toId": "reject-batch"
+      },
+      {
+        "fromId": "investigation",
+        "label": "Retest Data",
+        "toId": "review-coa"
+      },
+      {
+        "fromId": "final-review",
+        "label": "Approved",
+        "toId": "packaging"
+      },
+      {
+        "fromId": "final-review",
+        "label": "Rejected",
+        "toId": "reject-batch"
+      }
+    ],
+    "graphOptions": {
+      "diagramType": "flowchart",
+      "layout": {
+        "direction": "TB"
+      }
+    },
+    "nodes": [
+      {
+        "id": "receive-batch",
+        "kind": "start",
+        "label": "Receive Batch & Test Data",
+        "metadata": {}
+      },
+      {
+        "id": "review-coa",
+        "kind": "process",
+        "label": "QA Review of CoA",
+        "metadata": {}
+      },
+      {
+        "id": "check-specs",
+        "kind": "decision",
+        "label": "Passes Specs?",
+        "metadata": {}
+      },
+      {
+        "id": "investigation",
+        "kind": "process",
+        "label": "Investigate for Retesting",
+        "metadata": {}
+      },
+      {
+        "id": "reject-batch",
+        "kind": "end",
+        "label": "Reject Batch",
+        "metadata": {}
+      },
+      {
+        "id": "final-review",
+        "kind": "process",
+        "label": "Final Review (QA Manager)",
+        "metadata": {}
+      },
+      {
+        "id": "packaging",
+        "kind": "end",
+        "label": "Packaging",
+        "metadata": {}
+      }
+    ]
+  },
+  "tokens": 3008,
+  "durationMs": 13553,
+  "traceId": "d8e4c54a-05ec-47e2-b6ce-255db0825421"
+}

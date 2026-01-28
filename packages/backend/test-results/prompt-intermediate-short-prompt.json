@@ -1,0 +1,131 @@
+{
+  "scenario": "Adversarial edge case (very short prompt)",
+  "prompt": "user login flow",
+  "shareUrl": "https://excalidraw.com/#json=AvoOXtrVxr0x72XJJo_lL,_0LHL5y-h2_Hn_Q-tkRshg",
+  "intermediate": {
+    "edges": [
+      {
+        "fromId": "start",
+        "toId": "enter-creds"
+      },
+      {
+        "fromId": "enter-creds",
+        "toId": "validate"
+      },
+      {
+        "fromId": "validate",
+        "toId": "check-valid"
+      },
+      {
+        "fromId": "check-valid",
+        "label": "Yes",
+        "toId": "mfa-check"
+      },
+      {
+        "fromId": "mfa-check",
+        "label": "Yes",
+        "toId": "mfa-challenge"
+      },
+      {
+        "fromId": "mfa-check",
+        "label": "No",
+        "toId": "dashboard"
+      },
+      {
+        "fromId": "mfa-challenge",
+        "label": "Verified",
+        "toId": "dashboard"
+      },
+      {
+        "fromId": "check-valid",
+        "label": "No",
+        "toId": "failed-attempts"
+      },
+      {
+        "fromId": "failed-attempts",
+        "label": "Yes",
+        "toId": "show-error"
+      },
+      {
+        "fromId": "failed-attempts",
+        "label": "No",
+        "toId": "account-lock"
+      },
+      {
+        "fromId": "show-error",
+        "toId": "enter-creds"
+      }
+    ],
+    "graphOptions": {
+      "diagramType": "flowchart",
+      "layout": {
+        "direction": "TB"
+      }
+    },
+    "nodes": [
+      {
+        "id": "start",
+        "kind": "start",
+        "label": "Login Page",
+        "metadata": {}
+      },
+      {
+        "id": "enter-creds",
+        "kind": "process",
+        "label": "Enter Credentials",
+        "metadata": {}
+      },
+      {
+        "id": "validate",
+        "kind": "service",
+        "label": "Authenticate User",
+        "metadata": {}
+      },
+      {
+        "id": "check-valid",
+        "kind": "decision",
+        "label": "Valid?",
+        "metadata": {}
+      },
+      {
+        "id": "mfa-check",
+        "kind": "decision",
+        "label": "MFA Enabled?",
+        "metadata": {}
+      },
+      {
+        "id": "mfa-challenge",
+        "kind": "process",
+        "label": "Enter MFA Code",
+        "metadata": {}
+      },
+      {
+        "id": "dashboard",
+        "kind": "end",
+        "label": "Redirect to Dashboard",
+        "metadata": {}
+      },
+      {
+        "id": "failed-attempts",
+        "kind": "decision",
+        "label": "Attempts < Limit?",
+        "metadata": {}
+      },
+      {
+        "id": "show-error",
+        "kind": "process",
+        "label": "Show Error Message",
+        "metadata": {}
+      },
+      {
+        "id": "account-lock",
+        "kind": "end",
+        "label": "Account Locked",
+        "metadata": {}
+      }
+    ]
+  },
+  "tokens": 2537,
+  "durationMs": 11089,
+  "traceId": "c26d9819-83a0-4cab-b4ca-2e4ce6976e75"
+}
