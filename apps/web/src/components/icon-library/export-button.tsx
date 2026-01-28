@@ -14,6 +14,7 @@ import {
   type StyleSettings,
   svgToExcalidrawElements,
 } from "@/lib/icon-library/svg-to-excalidraw";
+import { validateSvgText } from "@/lib/icon-library/svg-validate";
 
 export interface ExportIconItem {
   name: string;
@@ -39,6 +40,43 @@ const sanitizeFileName = (name: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "") || "library";
 
+function triggerBlobDownload(blob: Blob, fileName: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+async function fetchIconSvg(icon: ExportIconItem): Promise<string | null> {
+  if (!icon.url) {
+    throw new Error(`Missing icon URL for ${icon.name}.`);
+  }
+  const response = await fetch(icon.url);
+  if (!response.ok) {
+    throw new Error(`Failed to load ${icon.name}.`);
+  }
+  const svgText = await response.text();
+  if (!validateAndLogSvg(svgText, icon.name)) {
+    return null;
+  }
+  return svgText;
+}
+
+function getUniqueFileName(baseName: string, usedNames: Set<string>): string {
+  let finalName = baseName;
+  let counter = 1;
+  while (usedNames.has(finalName)) {
+    finalName = `${baseName}-${counter}`;
+    counter++;
+  }
+  usedNames.add(finalName);
+  return finalName;
+}
+
 const FIXED_SEED = 12_345;
 
 function makeSvgScalable(container: HTMLElement): void {
@@ -61,6 +99,19 @@ function makeSvgScalable(container: HTMLElement): void {
   svg.removeAttribute("width");
   svg.removeAttribute("height");
   svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+}
+
+function validateAndLogSvg(svgText: string, iconName: string): boolean {
+  try {
+    validateSvgText(svgText);
+    return true;
+  } catch (error) {
+    console.warn(
+      `Skipping invalid SVG ${iconName}:`,
+      error instanceof Error ? error.message : error
+    );
+    return false;
+  }
 }
 
 function renderSketchySvg(
@@ -145,6 +196,9 @@ export default function ExportButton({
           throw new Error(`Failed to load ${icon.name}.`);
         }
         const svgText = await response.text();
+        if (!validateAndLogSvg(svgText, icon.name)) {
+          continue;
+        }
         const elements = svgToExcalidrawElements(
           svgText,
           styleSettings,
@@ -200,31 +254,21 @@ export default function ExportButton({
 
     try {
       const zip = new JSZip();
+      const usedNames = new Set<string>();
 
       for (const icon of icons) {
-        if (!icon.url) {
-          throw new Error(`Missing icon URL for ${icon.name}.`);
+        const svgText = await fetchIconSvg(icon);
+        if (!svgText) {
+          continue;
         }
-        const response = await fetch(icon.url);
-        if (!response.ok) {
-          throw new Error(`Failed to load ${icon.name}.`);
-        }
-        const svgText = await response.text();
-        const safeName = sanitizeFileName(icon.name);
-        zip.file(`${safeName}.svg`, svgText);
+        const baseName = sanitizeFileName(icon.name);
+        const finalName = getUniqueFileName(baseName, usedNames);
+        zip.file(`${finalName}.svg`, svgText);
       }
 
       const blob = await zip.generateAsync({ type: "blob" });
       const fileName = `${sanitizeFileName(libraryName)}.zip`;
-
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      triggerBlobDownload(blob, fileName);
 
       toast.success(`Downloaded ${icons.length} icons as ZIP.`);
     } catch (error) {
@@ -246,6 +290,7 @@ export default function ExportButton({
 
     try {
       const zip = new JSZip();
+      const usedNames = new Set<string>();
 
       for (const icon of icons) {
         if (!icon.url) {
@@ -258,8 +303,17 @@ export default function ExportButton({
         const svgText = await response.text();
 
         const renderedSvg = renderSketchySvg(svgText, icon.name, styleSettings);
-        const safeName = sanitizeFileName(icon.name);
-        zip.file(`${safeName}.svg`, renderedSvg);
+        const baseName = sanitizeFileName(icon.name);
+        let finalName = baseName;
+        let counter = 1;
+
+        while (usedNames.has(finalName)) {
+          finalName = `${baseName}-${counter}`;
+          counter++;
+        }
+
+        usedNames.add(finalName);
+        zip.file(`${finalName}.svg`, renderedSvg);
       }
 
       const blob = await zip.generateAsync({ type: "blob" });
