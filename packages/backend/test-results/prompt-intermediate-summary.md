@@ -1,45 +1,53 @@
 # Prompt to Intermediate E2E Test Results
 
-| Metric | Value |
-|--------|-------|
-| **Pass Rate** | 3/3 (100%) |
-| **Created** | 2026-01-28T06:45:32.541Z |
-| **Total Tokens** | 7,776 |
-| **Avg Duration** | 11.9s |
+- Pass rate: 2/3
+- Created: 2026-01-28T20:00:22.968Z
 
-## Convex Integration
+## Summary Table
 
-| Property | Value |
-|----------|-------|
-| **Action** | `generateIntermediateFromPrompt` |
-| **Module** | `convex/diagramGenerateIntermediateFromPrompt.ts` |
-| **Generator** | `lib/agents/intermediate-generator.ts` |
-| **Profile** | `general` (extensible registry) |
-| **Pattern** | AI SDK v6 ToolLoopAgent + Output.object() |
-| **Max Iterations** | 5 (validation retry loop) |
+| Scenario | Status | Tokens | Duration | Nodes | Edges | PNG Size | Share URL |
+|----------|--------|--------|----------|-------|-------|----------|-----------|
+| SME interview transcript (pharma batch disposition) | PASS | 2556 | 11835ms | 7 | 7 | 92KB | [SME interview transcript (pharma batch disposition) diagram](https://excalidraw.com/#json=HuULRM1beXFVTxVcfWxJZ,iJhP0vYMvQE--wiKFlfxxg) |
+| Rambling technical narration with mid-course correction | FAIL | n/a | 23506ms | n/a | n/a | n/a | n/a |
+| Adversarial edge case (very short prompt) | PASS | 2444 | 10736ms | 9 | 11 | 126KB | [Adversarial edge case (very short prompt) diagram](https://excalidraw.com/#json=HPyuyAVi-iyN6cI_zPDFp,WHpvSn07xqs2luY7nyhyeQ) |
 
-## Results
+## Scenario Details
 
-| Scenario | Status | Tokens | Duration | Nodes | Edges | PNG | Excalidraw |
-|:---------|:------:|-------:|---------:|------:|------:|----:|:----------:|
-| SME interview (pharma) | PASS | 3,008 | 14.4s | 7 | 8 | 104KB | [view](https://excalidraw.com/#json=O-3OKkn9CBniu4jWLqlg-,yynmlQxJkW9B1okuEuVbbA) |
-| Rambling tech narration | PASS | 2,231 | 9.1s | 9 | 10 | 112KB | [view](https://excalidraw.com/#json=1VxPCrO8ZPoJjqifudAYF,tBWYSdNDV9KBkpLX49BzlQ) |
-| Adversarial (short prompt) | PASS | 2,537 | 12.3s | 10 | 11 | 139KB | [view](https://excalidraw.com/#json=AvoOXtrVxr0x72XJJo_lL,_0LHL5y-h2_Hn_Q-tkRshg) |
+### SME interview transcript (pharma batch disposition)
+- Status: passed
+- Duration: 11835ms
+- Tokens: 2556
+- Nodes: 7
+- Edges: 7
+- PNG Size: 93870 bytes
+- JSON: prompt-intermediate-pharma-interview.json
+- PNG: prompt-intermediate-pharma-interview.png
+- Share URL: [SME interview transcript (pharma batch disposition) diagram](https://excalidraw.com/#json=HuULRM1beXFVTxVcfWxJZ,iJhP0vYMvQE--wiKFlfxxg)
+- Error: none
+- Created: 2026-01-28T20:00:11.297Z
 
-## Artifacts
+### Rambling technical narration with mid-course correction
+- Status: failed
+- Duration: 23506ms
+- Tokens: n/a
+- Nodes: n/a
+- Edges: n/a
+- PNG Size: n/a
+- JSON: n/a
+- PNG: n/a
+- Share URL: n/a
+- Error: Invalid edge references: Missing toId node: user-service, Missing toId node: product-service, Missing toId node: order-service, Missing fromId node: user-service, Missing toId node: redis-cache, Missing fromId node: product-service, Missing toId node: redis-cache, Missing fromId node: order-service, Missing toId node: redis-cache, Missing fromId node: redis-cache, Missing toId node: user-db, Missing fromId node: redis-cache, Missing toId node: product-db, Missing fromId node: redis-cache, Missing toId node: order-db
+- Created: 2026-01-28T20:00:22.968Z
 
-| Scenario | JSON | PNG | Created |
-|:---------|:-----|:----|:--------|
-| SME interview (pharma) | `prompt-intermediate-pharma-interview.json` | `prompt-intermediate-pharma-interview.png` | 06:45:32 |
-| Rambling tech narration | `prompt-intermediate-rambling-tech.json` | `prompt-intermediate-rambling-tech.png` | 06:45:27 |
-| Adversarial (short prompt) | `prompt-intermediate-short-prompt.json` | `prompt-intermediate-short-prompt.png` | 06:45:30 |
-
-## Validation
-
-| Check | Status |
-|:------|:------:|
-| IntermediateFormat schema | PASS |
-| Referential integrity (edge→node) | PASS |
-| Semantic validation (nodes/edges naming) | PASS |
-| Profile-specific rules | PASS |
-| No Excalidraw terminology in output | PASS |
+### Adversarial edge case (very short prompt)
+- Status: passed
+- Duration: 10736ms
+- Tokens: 2444
+- Nodes: 9
+- Edges: 11
+- PNG Size: 128948 bytes
+- JSON: prompt-intermediate-short-prompt.json
+- PNG: prompt-intermediate-short-prompt.png
+- Share URL: [Adversarial edge case (very short prompt) diagram](https://excalidraw.com/#json=HPyuyAVi-iyN6cI_zPDFp,WHpvSn07xqs2luY7nyhyeQ)
+- Error: none
+- Created: 2026-01-28T20:00:10.198Z
