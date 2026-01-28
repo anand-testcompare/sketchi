@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { Stagehand } from "@browserbasehq/stagehand";
+import { AISdkClient, Stagehand } from "@browserbasehq/stagehand";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import type { StagehandRunConfig } from "./config";
 import {
   persistReviewReport,
@@ -15,6 +16,10 @@ export interface ActResult {
 }
 
 export async function createStagehand(cfg: StagehandRunConfig) {
+  const openrouter = createOpenRouter({ apiKey: cfg.openrouterApiKey });
+  const llmClient = new AISdkClient({
+    model: openrouter.chat(cfg.modelName),
+  });
   const stagehand = new Stagehand({
     env: cfg.env,
     apiKey: cfg.browserbaseApiKey,
@@ -23,8 +28,8 @@ export async function createStagehand(cfg: StagehandRunConfig) {
     verbose: cfg.verbose,
     model: {
       modelName: cfg.modelName,
-      apiKey: cfg.openrouterApiKey,
     },
+    llmClient,
     localBrowserLaunchOptions:
       cfg.env === "LOCAL"
         ? {
