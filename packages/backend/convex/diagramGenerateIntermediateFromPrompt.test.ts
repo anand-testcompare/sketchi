@@ -73,6 +73,12 @@ interface ScenarioResult {
   slug: string;
   status: "passed" | "failed";
   durationMs: number;
+  stepDurationsMs?: {
+    generateIntermediate?: number;
+    generateDiagram?: number;
+    createShareLink?: number;
+    renderPng?: number;
+  };
   tokens?: number;
   nodeCount?: number;
   edgeCount?: number;
@@ -104,13 +110,16 @@ async function runScenario(scenario: Scenario): Promise<ScenarioResult> {
 
   const jsonFile = `${slug}.json`;
   const pngFile = `${slug}.png`;
+  const stepDurationsMs: NonNullable<ScenarioResult["stepDurationsMs"]> = {};
 
   try {
+    const generateIntermediateStart = Date.now();
     // Step 1: Generate intermediate from prompt
     const genResult = await t.action(
       api.diagramGenerateIntermediateFromPrompt.generateIntermediateFromPrompt,
       { prompt: scenario.prompt }
     );
+    stepDurationsMs.generateIntermediate = Date.now() - generateIntermediateStart;
 
     // Validate intermediate has nodes and edges
     if (
@@ -120,29 +129,39 @@ async function runScenario(scenario: Scenario): Promise<ScenarioResult> {
       throw new Error("Intermediate has no nodes");
     }
 
+    const generateDiagramStart = Date.now();
     // Step 2: Generate diagram from intermediate
     const diagResult = await t.action(
       api.diagramGenerateFromIntermediate.generateDiagramFromIntermediate,
       { intermediate: genResult.intermediate }
     );
+    stepDurationsMs.generateDiagram = Date.now() - generateDiagramStart;
 
+    const shareLinkStart = Date.now();
     // Step 3: Create share link
     const shareResult = await createExcalidrawShareLink(
       diagResult.elements,
       {}
     );
+    stepDurationsMs.createShareLink = Date.now() - shareLinkStart;
 
     // Validate share URL format
     if (!shareResult.url.startsWith("https://excalidraw.com/#json=")) {
       throw new Error(`Invalid share URL format: ${shareResult.url}`);
     }
 
+    const renderPngStart = Date.now();
     // Step 4: Render PNG
     const chartType =
       genResult.intermediate.graphOptions?.diagramType ?? "flowchart";
     const pngResult = await renderDiagramToPng(diagResult.diagram, {
       chartType: chartType as "flowchart" | "architecture" | "decision-tree",
     });
+    stepDurationsMs.renderPng = Date.now() - renderPngStart;
+
+    console.log(
+      `[${scenario.slug}] timings(ms): intermediate=${stepDurationsMs.generateIntermediate}, diagram=${stepDurationsMs.generateDiagram}, share=${stepDurationsMs.createShareLink}, png=${stepDurationsMs.renderPng}`
+    );
 
     // Validate PNG size
     if (pngResult.png.length < 1024) {
@@ -160,6 +179,7 @@ async function runScenario(scenario: Scenario): Promise<ScenarioResult> {
       intermediate: genResult.intermediate,
       tokens: genResult.tokens,
       durationMs: genResult.durationMs,
+      stepDurationsMs,
       traceId: genResult.traceId,
     });
 
@@ -170,6 +190,7 @@ async function runScenario(scenario: Scenario): Promise<ScenarioResult> {
       slug: scenario.slug,
       status: "passed",
       durationMs: Date.now() - startedAt,
+      stepDurationsMs,
       tokens: genResult.tokens,
       nodeCount: genResult.intermediate.nodes.length,
       edgeCount: genResult.intermediate.edges.length,
@@ -194,6 +215,7 @@ async function runScenario(scenario: Scenario): Promise<ScenarioResult> {
       slug: scenario.slug,
       status: "failed",
       durationMs: Date.now() - startedAt,
+      stepDurationsMs,
       error: message,
       createdAt: new Date().toISOString(),
     };
@@ -244,6 +266,11 @@ async function writeSummary(results: ScenarioResult[]) {
     lines.push(`### ${result.scenario}`);
     lines.push(`- Status: ${result.status}`);
     lines.push(`- Duration: ${result.durationMs}ms`);
+    if (result.stepDurationsMs) {
+      lines.push(
+        `- Step durations: intermediate=${result.stepDurationsMs.generateIntermediate ?? "n/a"}ms, diagram=${result.stepDurationsMs.generateDiagram ?? "n/a"}ms, share=${result.stepDurationsMs.createShareLink ?? "n/a"}ms, png=${result.stepDurationsMs.renderPng ?? "n/a"}ms`
+      );
+    }
     lines.push(`- Tokens: ${result.tokens ?? "n/a"}`);
     lines.push(`- Nodes: ${result.nodeCount ?? "n/a"}`);
     lines.push(`- Edges: ${result.edgeCount ?? "n/a"}`);
