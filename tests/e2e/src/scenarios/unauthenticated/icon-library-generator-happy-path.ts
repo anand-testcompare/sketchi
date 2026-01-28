@@ -18,6 +18,8 @@ Success:
 - Delete removes icon and count updates.
 */
 
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { loadConfig } from "../../runner/config";
 import {
   captureScreenshot,
@@ -34,34 +36,144 @@ import {
 } from "../../runner/utils";
 import { sleep } from "../../runner/wait";
 
-async function createLibraryWithName(
-  // biome-ignore lint/suspicious/noExplicitAny: Stagehand instance type
-  stagehand: any,
-  libraryName: string
-): Promise<void> {
-  await stagehand.act(
-    `Click the button or link to create a new icon library. Then fill in the library name field with "${libraryName}" and confirm creation.`
-  );
-  await sleep(500);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const fixturesDir = join(__dirname, "../../../fixtures/svgs");
+
+async function waitForLibraryInput(
+  // biome-ignore lint/suspicious/noExplicitAny: Playwright Page type
+  page: any,
+  timeoutMs = 30_000
+): Promise<boolean> {
+  const startedAt = Date.now();
+  for (;;) {
+    const exists = await page.evaluate(() =>
+      Boolean(document.querySelector('input[placeholder="Library name"]'))
+    );
+    if (exists) {
+      return true;
+    }
+    if (Date.now() - startedAt > timeoutMs) {
+      return false;
+    }
+    await sleep(250);
+  }
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: Stagehand instance type
-async function uploadSvgFiles(stagehand: any): Promise<void> {
-  await stagehand.act(
-    "Upload 3 SVG files to the library. Use the upload button or drag-and-drop area. The SVGs should be simple valid SVGs."
-  );
-  await sleep(1000);
+async function waitForHydration(
+  // biome-ignore lint/suspicious/noExplicitAny: Playwright Page type
+  page: any,
+  timeoutMs = 20_000
+): Promise<boolean> {
+  const startedAt = Date.now();
+  for (;;) {
+    const hydrated = await page.evaluate(
+      () => document.documentElement.dataset.hydrated === "true"
+    );
+    if (hydrated) {
+      return true;
+    }
+    if (Date.now() - startedAt > timeoutMs) {
+      return false;
+    }
+    await sleep(250);
+  }
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: Stagehand instance type
-async function verifyIconsLoaded(stagehand: any): Promise<boolean> {
-  const result = await stagehand.act(
-    "Check if the library now displays 3 icons in a grid. Count the visible icon thumbnails and report the count."
-  );
-  return (
-    result?.message?.toLowerCase().includes("3") ||
-    result?.message?.toLowerCase().includes("three")
-  );
+async function waitForUploadInput(
+  // biome-ignore lint/suspicious/noExplicitAny: Playwright Page type
+  page: any,
+  timeoutMs = 30_000
+): Promise<boolean> {
+  const startedAt = Date.now();
+  for (;;) {
+    const exists = await page.evaluate(() =>
+      Boolean(document.querySelector('[data-testid="svg-file-input"]'))
+    );
+    if (exists) {
+      return true;
+    }
+    if (Date.now() - startedAt > timeoutMs) {
+      return false;
+    }
+    await sleep(250);
+  }
+}
+
+async function waitForEditorOrToastError(
+  // biome-ignore lint/suspicious/noExplicitAny: Playwright Page type
+  page: any,
+  timeoutMs = 45_000
+): Promise<{ ok: boolean; toast?: string }> {
+  const startedAt = Date.now();
+  for (;;) {
+    const result = await page.evaluate(() => {
+      const hasUpload = Boolean(
+        document.querySelector('[data-testid="svg-file-input"]')
+      );
+      const toast = document.querySelector("[data-sonner-toast]")?.textContent;
+      return { hasUpload, toast: toast?.trim() ?? "" };
+    });
+    if (result.hasUpload) {
+      return { ok: true };
+    }
+    if (result.toast) {
+      return { ok: false, toast: result.toast };
+    }
+    if (Date.now() - startedAt > timeoutMs) {
+      return { ok: false };
+    }
+    await sleep(250);
+  }
+}
+
+// biome-ignore lint/suspicious/noExplicitAny: Playwright Page type
+async function createLibraryWithName(page: any, libraryName: string) {
+  await page.waitForSelector('input[placeholder="Library name"]', {
+    state: "visible",
+    timeout: 20_000,
+  });
+  await page.locator('input[placeholder="Library name"]').fill(libraryName);
+  const createSelector =
+    'xpath=//section[.//input[@placeholder="Library name"]]//button[normalize-space()="Create"]';
+  await page.waitForSelector(createSelector, {
+    state: "visible",
+    timeout: 20_000,
+  });
+  await page.locator(createSelector).click();
+}
+
+// biome-ignore lint/suspicious/noExplicitAny: Playwright Page type
+async function uploadSvgFiles(page: any): Promise<void> {
+  const fixtures = [
+    join(fixturesDir, "palantir-workshop.svg"),
+    join(fixturesDir, "palantir-pipeline.svg"),
+    join(fixturesDir, "palantir-ontology.svg"),
+  ];
+
+  await page.locator('[data-testid="svg-file-input"]').setInputFiles(fixtures);
+  await sleep(1500); // Wait for uploads to process
+}
+
+async function waitForIconCount(
+  // biome-ignore lint/suspicious/noExplicitAny: Playwright Page type
+  page: any,
+  expected: number,
+  timeoutMs = 30_000
+): Promise<boolean> {
+  const startedAt = Date.now();
+  for (;;) {
+    const count = await page.evaluate(
+      () => document.querySelectorAll('[data-testid="icon-grid-item"]').length
+    );
+    if (count === expected) {
+      return true;
+    }
+    if (Date.now() - startedAt > timeoutMs) {
+      return false;
+    }
+    await sleep(250);
+  }
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: Stagehand instance type
@@ -91,25 +203,40 @@ async function main() {
   try {
     const page = await getActivePage(stagehand);
     // biome-ignore lint/suspicious/noExplicitAny: Playwright Page types
-    await resetBrowserState(page as any, cfg.baseUrl);
+    await resetBrowserState(page as any, cfg.baseUrl, cfg.vercelBypassSecret);
     // biome-ignore lint/suspicious/noExplicitAny: Playwright Page types
     await ensureDesktopViewport(page as any);
 
-    await page.goto(resolveUrl(cfg.baseUrl, "/"), {
+    await page.goto(resolveUrl(cfg.baseUrl, "/library-generator"), {
       waitUntil: "domcontentloaded",
     });
 
-    await stagehand.act(
-      "Navigate to the Icon Library Generator page. Look for a link or button in the navigation that says 'Icon Library Generator' or similar."
-    );
-    await sleep(500);
+    const hydrated = await waitForHydration(page as any, 20_000);
+    if (!hydrated) {
+      throw new Error("App hydration did not complete in time.");
+    }
 
     const libraryName = `test-lib-${Date.now()}`;
-    await createLibraryWithName(stagehand, libraryName);
+    const libraryInputReady = await waitForLibraryInput(page as any, 20_000);
+    if (!libraryInputReady) {
+      throw new Error("Library create form did not load in time.");
+    }
 
-    await uploadSvgFiles(stagehand);
+    await createLibraryWithName(page as any, libraryName);
 
-    const iconsLoaded = await verifyIconsLoaded(stagehand);
+    const editorResult = await waitForEditorOrToastError(page as any, 45_000);
+    if (!editorResult.ok) {
+      if (editorResult.toast) {
+        throw new Error(
+          `Create UI failed before navigation: ${editorResult.toast}`
+        );
+      }
+      throw new Error("Create UI did not navigate to editor.");
+    }
+
+    await uploadSvgFiles(page as any);
+
+    const iconsLoaded = await waitForIconCount(page as any, 3, 20_000);
     if (!iconsLoaded) {
       warnings.push("Failed to verify 3 icons loaded after upload");
     }

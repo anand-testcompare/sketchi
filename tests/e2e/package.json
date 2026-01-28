@@ -2,11 +2,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "visual-sanity": "bun run src/scenarios/unauthenticated/visual-sanity.ts"
+    "visual-sanity": "bun run src/scenarios/unauthenticated/visual-sanity.ts",
+    "icon-library-generator-happy-path": "bun run src/scenarios/unauthenticated/icon-library-generator-happy-path.ts"
   },
   "dependencies": {
     "@browserbasehq/stagehand": "^3.0.7",
-    "dotenv": "^17.2.3"
+    "convex": "^1.31.6",
+    "dotenv": "^17.2.3",
+    "openai": "^4.87.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",

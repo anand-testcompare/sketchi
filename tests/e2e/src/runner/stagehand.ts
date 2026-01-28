@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { Stagehand } from "@browserbasehq/stagehand";
+import { CustomOpenAIClient, Stagehand } from "@browserbasehq/stagehand";
+import OpenAI from "openai";
 import type { StagehandRunConfig } from "./config";
 import {
   persistReviewReport,
@@ -15,6 +16,13 @@ export interface ActResult {
 }
 
 export async function createStagehand(cfg: StagehandRunConfig) {
+  const llmClient = new CustomOpenAIClient({
+    modelName: cfg.modelName,
+    client: new OpenAI({
+      apiKey: cfg.openrouterApiKey,
+      baseURL: "https://openrouter.ai/api/v1",
+    }),
+  });
   const stagehand = new Stagehand({
     env: cfg.env,
     apiKey: cfg.browserbaseApiKey,
@@ -23,8 +31,8 @@ export async function createStagehand(cfg: StagehandRunConfig) {
     verbose: cfg.verbose,
     model: {
       modelName: cfg.modelName,
-      apiKey: cfg.openrouterApiKey,
     },
+    llmClient,
     localBrowserLaunchOptions:
       cfg.env === "LOCAL"
         ? {
@@ -35,10 +43,43 @@ export async function createStagehand(cfg: StagehandRunConfig) {
   });
 
   await stagehand.init();
+  await applyVercelBypassHeaders(stagehand.context, cfg);
   return stagehand;
 }
 
 const popupBlockerAttached = new WeakSet<object>();
+
+async function applyVercelBypassHeaders(
+  context: {
+    setExtraHTTPHeaders?: (headers: Record<string, string>) => Promise<void>;
+    pages?: () => Array<{
+      setExtraHTTPHeaders?: (headers: Record<string, string>) => Promise<void>;
+    }>;
+  },
+  cfg: StagehandRunConfig
+) {
+  if (!cfg.vercelBypassSecret) {
+    return;
+  }
+  const headers = {
+    "x-vercel-protection-bypass": cfg.vercelBypassSecret,
+    "x-vercel-set-bypass-cookie": "true",
+  };
+  if (typeof context.setExtraHTTPHeaders === "function") {
+    await context.setExtraHTTPHeaders(headers);
+    return;
+  }
+  if (typeof context.pages === "function") {
+    const pages = context.pages();
+    await Promise.all(
+      pages.map((page) =>
+        typeof page.setExtraHTTPHeaders === "function"
+          ? page.setExtraHTTPHeaders(headers)
+          : Promise.resolve()
+      )
+    );
+  }
+}
 
 async function attachPopupBlocker(page: {
   addInitScript?: (script: () => void) => Promise<void>;
@@ -74,23 +115,39 @@ export async function getActivePage(stagehand: Stagehand) {
   if (pages.length > 0) {
     const page = pages[0];
     await attachPopupBlocker(page);
+    await applyVercelBypassHeadersToPage(page);
     return page;
   }
   if ("awaitActivePage" in stagehand.context) {
     const active = await stagehand.context.awaitActivePage();
     if (active) {
       await attachPopupBlocker(active);
+      await applyVercelBypassHeadersToPage(active);
       return active;
     }
   }
   const page = await stagehand.context.newPage();
   await attachPopupBlocker(page);
+  await applyVercelBypassHeadersToPage(page);
   return page;
 }
 
 export function isSoftCompletion(result?: ActResult) {
   const message = result?.message?.toLowerCase() ?? "";
   return message.includes("task execution completed");
+}
+
+async function applyVercelBypassHeadersToPage(page: {
+  setExtraHTTPHeaders?: (headers: Record<string, string>) => Promise<void>;
+}) {
+  const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+  if (!bypassSecret || typeof page.setExtraHTTPHeaders !== "function") {
+    return;
+  }
+  await page.setExtraHTTPHeaders({
+    "x-vercel-protection-bypass": bypassSecret,
+    "x-vercel-set-bypass-cookie": "true",
+  });
 }
 
 export async function captureScreenshot(

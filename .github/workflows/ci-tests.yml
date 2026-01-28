@@ -5,9 +5,21 @@ name: ci-tests
 
 on:
   pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
+      - "AGENTS.md"
+      - ".codex/**"
+      - ".opencode/**"
   push:
     branches:
       - main
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
+      - "AGENTS.md"
+      - ".codex/**"
+      - ".opencode/**"
 
 jobs:
   convex-tests:
