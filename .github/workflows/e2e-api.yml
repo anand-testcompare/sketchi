@@ -1,0 +1,46 @@
+# E2E API - Venom API tests on Vercel preview deploys
+# Trigger: deployment_status (Vercel webhook)
+# Parallel: runs alongside e2e-web on preview deploy
+name: e2e-api
+
+on:
+  deployment_status:
+
+permissions:
+  contents: read
+
+jobs:
+  api-tests:
+    if: >
+      github.event.deployment_status.state == 'success' &&
+      github.event.deployment_status.environment_url != '' &&
+      (github.event.deployment.environment == 'Preview' || github.event.deployment.environment == 'preview')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Venom
+        run: |
+          curl -L -o venom https://github.com/ovh/venom/releases/download/v1.2.0/venom.linux-amd64
+          chmod +x venom
+          sudo mv venom /usr/local/bin/
+
+      - name: Run API tests
+        env:
+          VENOM_TARGET_URL: ${{ github.event.deployment_status.environment_url }}
+        run: |
+          venom run tests/api/*.yml \
+            --output-dir tests/api/results \
+            --format xml \
+            --format json
+
+      - name: Upload API test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-test-results-${{ github.run_id }}
+          path: tests/api/results
+          if-no-files-found: warn
+          retention-days: 7
