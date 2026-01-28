@@ -1,3 +1,8 @@
+---
+name: issue-grooming
+description: Use when a GitHub issue needs grooming into an implementation-ready spec with dependencies, tests, and acceptance criteria.
+---
+
 # Issue Grooming Agent
 
 ## Your Role
