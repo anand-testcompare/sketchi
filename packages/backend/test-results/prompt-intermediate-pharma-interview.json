@@ -1,31 +1,35 @@
 {
   "scenario": "SME interview transcript (pharma batch disposition)",
   "prompt": "I'm interviewing a pharma manufacturing SME about their batch disposition process. \nSME: First, we receive the batch from production with all the test data. \nThen QA reviews the Certificate of Analysis. \nIf it passes specs, we move to final review. \nIf it fails, we either investigate for retesting or reject the batch outright. \nFinal review is done by QA Manager who makes the disposition decision. \nAfter approval, it goes to packaging.",
-  "shareUrl": "https://excalidraw.com/#json=HkAx5ZoUJzOaCNtg8-B2h,zq9PzvDe5wa_M0DHo012Wg",
+  "shareUrl": "https://excalidraw.com/#json=HuULRM1beXFVTxVcfWxJZ,iJhP0vYMvQE--wiKFlfxxg",
   "intermediate": {
     "edges": [
       {
-        "fromId": "start-production",
-        "toId": "qa-coa-review"
+        "fromId": "batch-received",
+        "toId": "qa-review-coa"
       },
       {
-        "fromId": "qa-coa-review",
-        "toId": "check-specs"
+        "fromId": "qa-review-coa",
+        "toId": "specs-passed"
       },
       {
-        "fromId": "check-specs",
+        "fromId": "specs-passed",
         "label": "Yes",
         "toId": "final-review"
       },
       {
-        "fromId": "check-specs",
-        "label": "No (Potential Retest)",
-        "toId": "investigate"
+        "fromId": "specs-passed",
+        "label": "No",
+        "toId": "investigate-retest"
       },
       {
-        "fromId": "check-specs",
-        "label": "No (Outright Failure)",
-        "toId": "reject"
+        "fromId": "specs-passed",
+        "label": "No",
+        "toId": "reject-batch"
+      },
+      {
+        "fromId": "investigate-retest",
+        "toId": "final-review"
       },
       {
         "fromId": "final-review",
@@ -41,31 +45,31 @@
     },
     "nodes": [
       {
-        "id": "start-production",
+        "id": "batch-received",
         "kind": "start",
-        "label": "Receive Batch & Test Data",
+        "label": "Batch Received",
         "metadata": {}
       },
       {
-        "id": "qa-coa-review",
+        "id": "qa-review-coa",
         "kind": "process",
-        "label": "QA Reviews Certificate of Analysis",
+        "label": "QA Review of CoA",
         "metadata": {}
       },
       {
-        "id": "check-specs",
+        "id": "specs-passed",
         "kind": "decision",
         "label": "Passes Specs?",
         "metadata": {}
       },
       {
-        "id": "investigate",
+        "id": "investigate-retest",
         "kind": "process",
         "label": "Investigate for Retesting",
         "metadata": {}
       },
       {
-        "id": "reject",
+        "id": "reject-batch",
         "kind": "end",
         "label": "Reject Batch",
         "metadata": {}
@@ -79,12 +83,12 @@
       {
         "id": "packaging",
         "kind": "end",
-        "label": "Move to Packaging",
+        "label": "Packaging",
         "metadata": {}
       }
     ]
   },
-  "tokens": 2582,
-  "durationMs": 10342,
-  "traceId": "04c6987b-87b0-4fac-8fe8-a71aac193c1c"
+  "tokens": 2556,
+  "durationMs": 11118,
+  "traceId": "2c784164-ee6d-43c0-bf55-f2cfcc5a4e6e"
 }

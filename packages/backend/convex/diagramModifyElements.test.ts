@@ -1,9 +1,4 @@
-/**
- * Diagram modification scenarios (elements + share link):
- * - Targeted tweaks (elements input)
- * - Share link round-trip modify
- * - Invalid output handling (forced bad request)
- */
+// Why: exercise element-diff validation, share-link round trips, and failure handling.
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";

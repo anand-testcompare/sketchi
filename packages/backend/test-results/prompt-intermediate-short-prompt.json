@@ -1,54 +1,58 @@
 {
   "scenario": "Adversarial edge case (very short prompt)",
   "prompt": "user login flow",
-  "shareUrl": "https://excalidraw.com/#json=Jnnj2NTDo_63t3tXYPKFz,2bT0yjLc8MD3jrjYj2ZIjw",
+  "shareUrl": "https://excalidraw.com/#json=HPyuyAVi-iyN6cI_zPDFp,WHpvSn07xqs2luY7nyhyeQ",
   "intermediate": {
     "edges": [
       {
-        "fromId": "start-node",
-        "toId": "enter-credentials"
+        "fromId": "start",
+        "toId": "enter-creds"
       },
       {
-        "fromId": "enter-credentials",
-        "toId": "validate-credentials"
+        "fromId": "enter-creds",
+        "toId": "validate-creds"
       },
       {
-        "fromId": "validate-credentials",
-        "label": "No",
-        "toId": "error-invalid"
+        "fromId": "validate-creds",
+        "label": "Valid",
+        "toId": "mfa-check"
       },
       {
-        "fromId": "error-invalid",
-        "toId": "enter-credentials"
+        "fromId": "validate-creds",
+        "label": "Invalid",
+        "toId": "cred-error"
       },
       {
-        "fromId": "validate-credentials",
+        "fromId": "cred-error",
+        "toId": "enter-creds"
+      },
+      {
+        "fromId": "mfa-check",
         "label": "Yes",
-        "toId": "check-2fa"
+        "toId": "mfa-prompt"
       },
       {
-        "fromId": "check-2fa",
+        "fromId": "mfa-check",
         "label": "No",
-        "toId": "login-success"
+        "toId": "success"
       },
       {
-        "fromId": "check-2fa",
-        "label": "Yes",
-        "toId": "request-2fa"
+        "fromId": "mfa-prompt",
+        "toId": "validate-mfa"
       },
       {
-        "fromId": "request-2fa",
-        "toId": "validate-2fa"
+        "fromId": "validate-mfa",
+        "label": "Valid",
+        "toId": "success"
       },
       {
-        "fromId": "validate-2fa",
-        "label": "Yes",
-        "toId": "login-success"
+        "fromId": "validate-mfa",
+        "label": "Invalid",
+        "toId": "mfa-error"
       },
       {
-        "fromId": "validate-2fa",
-        "label": "No",
-        "toId": "error-invalid"
+        "fromId": "mfa-error",
+        "toId": "mfa-prompt"
       }
     ],
     "graphOptions": {
@@ -59,56 +63,57 @@
     },
     "nodes": [
       {
-        "id": "start-node",
+        "id": "start",
         "kind": "start",
-        "label": "User Opens Login Page",
+        "label": "Login Page",
         "metadata": {}
       },
       {
-        "id": "enter-credentials",
+        "id": "enter-creds",
         "kind": "process",
-        "label": "Enter Username & Password",
-        "metadata": {}
+        "label": "Enter Username & Password"
       },
       {
-        "id": "validate-credentials",
+        "id": "validate-creds",
         "kind": "decision",
-        "label": "Are Credentials Valid?",
-        "metadata": {}
+        "label": "Validate Credentials"
       },
       {
-        "id": "error-invalid",
+        "id": "cred-error",
         "kind": "process",
-        "label": "Show Error Message",
+        "label": "Show Error: Invalid Credentials",
         "metadata": {}
       },
       {
-        "id": "check-2fa",
+        "id": "mfa-check",
         "kind": "decision",
-        "label": "Is 2FA Enabled?",
-        "metadata": {}
+        "label": "Is MFA Enabled?"
       },
       {
-        "id": "request-2fa",
+        "id": "mfa-prompt",
         "kind": "process",
-        "label": "Request 2FA Code",
-        "metadata": {}
+        "label": "Prompt for MFA Code"
       },
       {
-        "id": "validate-2fa",
+        "id": "validate-mfa",
         "kind": "decision",
-        "label": "Is Code Correct?",
+        "label": "Validate MFA"
+      },
+      {
+        "id": "mfa-error",
+        "kind": "process",
+        "label": "Show Error: Invalid MFA Code",
         "metadata": {}
       },
       {
-        "id": "login-success",
+        "id": "success",
         "kind": "end",
-        "label": "Login Successful",
+        "label": "Login Successful: Dashboard",
         "metadata": {}
       }
     ]
   },
-  "tokens": 2267,
-  "durationMs": 9483,
-  "traceId": "d92703d0-12e3-459e-b071-657985376b6d"
+  "tokens": 2444,
+  "durationMs": 9126,
+  "traceId": "207d5e97-125a-49e8-b70d-11028d0116c5"
 }
