@@ -1,3 +1,4 @@
+/// <reference types="bun-types" />
 import { readdir, readFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";

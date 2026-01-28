@@ -1,4 +1,7 @@
-name: Release and Version Bump
+# CD Release - Version bump + GitHub release creation
+# Trigger: main push (skips version bump commits)
+# Parallel: runs alongside ci-tests on main
+name: cd-release
 
 on:
   push:

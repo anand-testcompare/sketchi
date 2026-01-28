@@ -1,4 +1,7 @@
-name: E2E Preview
+# E2E Web - Stagehand browser tests on Vercel preview deploys
+# Trigger: deployment_status (Vercel webhook)
+# Parallel: runs alongside e2e-api on preview deploy
+name: e2e-web
 
 on:
   deployment_status:
@@ -11,6 +14,8 @@ jobs:
     if: >
       github.event.deployment_status.state == 'success' &&
       github.event.deployment_status.environment_url != '' &&
+      (startsWith(github.event.deployment_status.environment_url, 'https://') ||
+       startsWith(github.event.deployment_status.environment_url, 'http://')) &&
       (github.event.deployment.environment == 'Preview' || github.event.deployment.environment == 'preview')
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -38,6 +43,7 @@ jobs:
           MODEL_NAME: ${{ secrets.MODEL_NAME }}
           VISION_MODEL_NAME: ${{ secrets.VISION_MODEL_NAME }}
           STAGEHAND_VISUAL_STRICT: "false"
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
           echo "E2E visual-sanity test temporarily disabled while dark mode toggle issue is investigated"
           echo "TODO: Fix dark mode toggle in ModeToggle component and re-enable"

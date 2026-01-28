@@ -43,7 +43,7 @@
 - [ ] Add `@orpc/server`, `@orpc/openapi`, `@orpc/zod` to apps/web
 - [ ] Add `dagre` or `elkjs` to packages/backend
 - [ ] Set up oRPC router with OpenAPIReferencePlugin
-- [ ] Configure Scalar docs at `/docs`
+- [ ] Configure Scalar docs at `/api/docs`
 
 ### Convex Backend
 - [ ] Define schema (diagrams, techStacks tables)
