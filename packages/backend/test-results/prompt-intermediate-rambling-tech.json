@@ -1,51 +1,46 @@
 {
   "scenario": "Rambling technical narration with mid-course correction",
   "prompt": "So I want to build a microservices architecture, starting with a user service \nthat handles authentication... actually, let's make that an API gateway first \nthat routes to different services. Then we have user service, product service, \nand... wait, we should also have an order service. All of these connect to \nseparate databases. Oh, and add a caching layer between services and databases \nusing Redis.",
-  "shareUrl": "https://excalidraw.com/#json=1VxPCrO8ZPoJjqifudAYF,tBWYSdNDV9KBkpLX49BzlQ",
+  "shareUrl": "https://excalidraw.com/#json=MLcNzCKZvzIIwb-uRMYhy,U88oZVBX54XN8PIKWQopeg",
   "intermediate": {
     "edges": [
       {
-        "fromId": "client",
-        "label": "Request",
-        "toId": "api-gateway"
-      },
-      {
         "fromId": "api-gateway",
-        "label": "Route",
+        "label": "routes to",
         "toId": "user-service"
       },
       {
         "fromId": "api-gateway",
-        "label": "Route",
+        "label": "routes to",
         "toId": "product-service"
       },
       {
         "fromId": "api-gateway",
-        "label": "Route",
+        "label": "routes to",
         "toId": "order-service"
       },
       {
         "fromId": "user-service",
-        "toId": "redis-cache"
+        "toId": "redis-layer"
       },
       {
         "fromId": "product-service",
-        "toId": "redis-cache"
+        "toId": "redis-layer"
       },
       {
         "fromId": "order-service",
-        "toId": "redis-cache"
+        "toId": "redis-layer"
       },
       {
-        "fromId": "redis-cache",
+        "fromId": "redis-layer",
         "toId": "user-db"
       },
       {
-        "fromId": "redis-cache",
+        "fromId": "redis-layer",
         "toId": "product-db"
       },
       {
-        "fromId": "redis-cache",
+        "fromId": "redis-layer",
         "toId": "order-db"
       }
     ],
@@ -56,12 +51,6 @@
       }
     },
     "nodes": [
-      {
-        "id": "client",
-        "kind": "actor",
-        "label": "Client / User",
-        "metadata": {}
-      },
       {
         "id": "api-gateway",
         "kind": "service",
@@ -87,32 +76,32 @@
         "metadata": {}
       },
       {
-        "id": "redis-cache",
-        "kind": "cache",
-        "label": "Redis Cache",
+        "id": "redis-layer",
+        "kind": "service",
+        "label": "Redis Cache Layer",
         "metadata": {}
       },
       {
         "id": "user-db",
-        "kind": "database",
+        "kind": "data",
         "label": "User DB",
         "metadata": {}
       },
       {
         "id": "product-db",
-        "kind": "database",
+        "kind": "data",
         "label": "Product DB",
         "metadata": {}
       },
       {
         "id": "order-db",
-        "kind": "database",
+        "kind": "data",
         "label": "Order DB",
         "metadata": {}
       }
     ]
   },
-  "tokens": 2231,
-  "durationMs": 7512,
-  "traceId": "0542e36c-34e0-44e5-9c09-c0453158e0ff"
+  "tokens": 2595,
+  "durationMs": 12151,
+  "traceId": "b6222b11-3c87-497e-b8b5-7264914fc00b"
 }

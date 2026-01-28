@@ -1,59 +1,54 @@
 {
   "scenario": "Adversarial edge case (very short prompt)",
   "prompt": "user login flow",
-  "shareUrl": "https://excalidraw.com/#json=AvoOXtrVxr0x72XJJo_lL,_0LHL5y-h2_Hn_Q-tkRshg",
+  "shareUrl": "https://excalidraw.com/#json=Jnnj2NTDo_63t3tXYPKFz,2bT0yjLc8MD3jrjYj2ZIjw",
   "intermediate": {
     "edges": [
       {
-        "fromId": "start",
-        "toId": "enter-creds"
+        "fromId": "start-node",
+        "toId": "enter-credentials"
       },
       {
-        "fromId": "enter-creds",
-        "toId": "validate"
+        "fromId": "enter-credentials",
+        "toId": "validate-credentials"
       },
       {
-        "fromId": "validate",
-        "toId": "check-valid"
-      },
-      {
-        "fromId": "check-valid",
-        "label": "Yes",
-        "toId": "mfa-check"
-      },
-      {
-        "fromId": "mfa-check",
-        "label": "Yes",
-        "toId": "mfa-challenge"
-      },
-      {
-        "fromId": "mfa-check",
+        "fromId": "validate-credentials",
         "label": "No",
-        "toId": "dashboard"
+        "toId": "error-invalid"
       },
       {
-        "fromId": "mfa-challenge",
-        "label": "Verified",
-        "toId": "dashboard"
+        "fromId": "error-invalid",
+        "toId": "enter-credentials"
       },
       {
-        "fromId": "check-valid",
-        "label": "No",
-        "toId": "failed-attempts"
-      },
-      {
-        "fromId": "failed-attempts",
+        "fromId": "validate-credentials",
         "label": "Yes",
-        "toId": "show-error"
+        "toId": "check-2fa"
       },
       {
-        "fromId": "failed-attempts",
+        "fromId": "check-2fa",
         "label": "No",
-        "toId": "account-lock"
+        "toId": "login-success"
       },
       {
-        "fromId": "show-error",
-        "toId": "enter-creds"
+        "fromId": "check-2fa",
+        "label": "Yes",
+        "toId": "request-2fa"
+      },
+      {
+        "fromId": "request-2fa",
+        "toId": "validate-2fa"
+      },
+      {
+        "fromId": "validate-2fa",
+        "label": "Yes",
+        "toId": "login-success"
+      },
+      {
+        "fromId": "validate-2fa",
+        "label": "No",
+        "toId": "error-invalid"
       }
     ],
     "graphOptions": {
@@ -64,68 +59,56 @@
     },
     "nodes": [
       {
-        "id": "start",
+        "id": "start-node",
         "kind": "start",
-        "label": "Login Page",
+        "label": "User Opens Login Page",
         "metadata": {}
       },
       {
-        "id": "enter-creds",
+        "id": "enter-credentials",
         "kind": "process",
-        "label": "Enter Credentials",
+        "label": "Enter Username & Password",
         "metadata": {}
       },
       {
-        "id": "validate",
-        "kind": "service",
-        "label": "Authenticate User",
-        "metadata": {}
-      },
-      {
-        "id": "check-valid",
+        "id": "validate-credentials",
         "kind": "decision",
-        "label": "Valid?",
+        "label": "Are Credentials Valid?",
         "metadata": {}
       },
       {
-        "id": "mfa-check",
-        "kind": "decision",
-        "label": "MFA Enabled?",
-        "metadata": {}
-      },
-      {
-        "id": "mfa-challenge",
-        "kind": "process",
-        "label": "Enter MFA Code",
-        "metadata": {}
-      },
-      {
-        "id": "dashboard",
-        "kind": "end",
-        "label": "Redirect to Dashboard",
-        "metadata": {}
-      },
-      {
-        "id": "failed-attempts",
-        "kind": "decision",
-        "label": "Attempts < Limit?",
-        "metadata": {}
-      },
-      {
-        "id": "show-error",
+        "id": "error-invalid",
         "kind": "process",
         "label": "Show Error Message",
         "metadata": {}
       },
       {
-        "id": "account-lock",
+        "id": "check-2fa",
+        "kind": "decision",
+        "label": "Is 2FA Enabled?",
+        "metadata": {}
+      },
+      {
+        "id": "request-2fa",
+        "kind": "process",
+        "label": "Request 2FA Code",
+        "metadata": {}
+      },
+      {
+        "id": "validate-2fa",
+        "kind": "decision",
+        "label": "Is Code Correct?",
+        "metadata": {}
+      },
+      {
+        "id": "login-success",
         "kind": "end",
-        "label": "Account Locked",
+        "label": "Login Successful",
         "metadata": {}
       }
     ]
   },
-  "tokens": 2537,
-  "durationMs": 11089,
-  "traceId": "c26d9819-83a0-4cab-b4ca-2e4ce6976e75"
+  "tokens": 2267,
+  "durationMs": 9483,
+  "traceId": "d92703d0-12e3-459e-b071-657985376b6d"
 }
