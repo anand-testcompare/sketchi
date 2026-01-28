@@ -1,3 +1,5 @@
+
+
 # Working Preferences
 
 ## Communication
@@ -20,6 +22,7 @@
 ## Workflow
 - commit + push often (small commits)
 - delete obsolete docs/experiments
+- use `gh` for GitHub issues/PRs instead of web UI
 
 ## Linting
 - `bun x ultracite fix` format
