@@ -51,11 +51,7 @@ async function readJsonIfExists<T>(path: string): Promise<T | null> {
     throw error;
   }
 
-  try {
-    return JSON.parse(raw) as T;
-  } catch (error) {
-    throw error;
-  }
+  return JSON.parse(raw) as T;
 }
 
 function slugify(value: string): string {
