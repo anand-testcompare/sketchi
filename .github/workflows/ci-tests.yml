@@ -1,4 +1,7 @@
-name: backend-convex-tests
+# CI Tests - Convex backend unit tests
+# Trigger: PR, main push
+# Parallel: runs alongside cd-release on main
+name: ci-tests
 
 on:
   pull_request:

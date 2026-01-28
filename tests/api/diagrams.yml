@@ -1,0 +1,53 @@
+name: Diagram API Endpoints
+vars:
+  target_url: "{{.VENOM_TARGET_URL}}"
+
+testcases:
+  - name: POST /api/diagrams/generate returns 404 (not implemented)
+    steps:
+      - type: http
+        method: POST
+        url: "{{.target_url}}/api/diagrams/generate"
+        headers:
+          Content-Type: application/json
+        body: '{}'
+        assertions:
+          - result.statuscode ShouldEqual 404
+          - result.bodyjson.error ShouldEqual "Not implemented"
+          - result.bodyjson.endpoint ShouldEqual "/api/diagrams/generate"
+
+  - name: POST /api/diagrams/modify returns 404 (not implemented)
+    steps:
+      - type: http
+        method: POST
+        url: "{{.target_url}}/api/diagrams/modify"
+        headers:
+          Content-Type: application/json
+        body: '{}'
+        assertions:
+          - result.statuscode ShouldEqual 404
+          - result.bodyjson.error ShouldEqual "Not implemented"
+          - result.bodyjson.endpoint ShouldEqual "/api/diagrams/modify"
+
+  - name: POST /api/diagrams/share returns 404 (not implemented)
+    steps:
+      - type: http
+        method: POST
+        url: "{{.target_url}}/api/diagrams/share"
+        headers:
+          Content-Type: application/json
+        body: '{}'
+        assertions:
+          - result.statuscode ShouldEqual 404
+          - result.bodyjson.error ShouldEqual "Not implemented"
+          - result.bodyjson.endpoint ShouldEqual "/api/diagrams/share"
+
+  - name: GET /api/diagrams/parse returns 404 (not implemented)
+    steps:
+      - type: http
+        method: GET
+        url: "{{.target_url}}/api/diagrams/parse"
+        assertions:
+          - result.statuscode ShouldEqual 404
+          - result.bodyjson.error ShouldEqual "Not implemented"
+          - result.bodyjson.endpoint ShouldEqual "/api/diagrams/parse"

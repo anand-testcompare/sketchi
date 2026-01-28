@@ -1,4 +1,7 @@
-name: E2E Preview
+# E2E Web - Stagehand browser tests on Vercel preview deploys
+# Trigger: deployment_status (Vercel webhook)
+# Parallel: runs alongside e2e-api on preview deploy
+name: e2e-web
 
 on:
   deployment_status:
