@@ -1,0 +1,114 @@
+{
+  "scenario": "Adversarial edge case (very short prompt)",
+  "prompt": "user login flow",
+  "shareUrl": "https://excalidraw.com/#json=wIyvQKc8SA96Gux71f0Cq,THBZdH51_hGtUTXNuscbOQ",
+  "intermediate": {
+    "edges": [
+      {
+        "fromId": "start",
+        "toId": "enter-credentials"
+      },
+      {
+        "fromId": "enter-credentials",
+        "toId": "click-login"
+      },
+      {
+        "fromId": "click-login",
+        "toId": "validate"
+      },
+      {
+        "fromId": "validate",
+        "label": "Yes",
+        "toId": "generate-session"
+      },
+      {
+        "fromId": "generate-session",
+        "toId": "dashboard"
+      },
+      {
+        "fromId": "validate",
+        "label": "No",
+        "toId": "check-attempts"
+      },
+      {
+        "fromId": "check-attempts",
+        "label": "No",
+        "toId": "show-error"
+      },
+      {
+        "fromId": "show-error",
+        "toId": "enter-credentials"
+      },
+      {
+        "fromId": "check-attempts",
+        "label": "Yes",
+        "toId": "lock-account"
+      }
+    ],
+    "graphOptions": {
+      "diagramType": "flowchart",
+      "layout": {
+        "direction": "TB"
+      }
+    },
+    "nodes": [
+      {
+        "id": "start",
+        "kind": "start",
+        "label": "Start Login",
+        "metadata": {}
+      },
+      {
+        "id": "enter-credentials",
+        "kind": "process",
+        "label": "Enter Credentials",
+        "metadata": {}
+      },
+      {
+        "id": "click-login",
+        "kind": "process",
+        "label": "Click Login",
+        "metadata": {}
+      },
+      {
+        "id": "validate",
+        "kind": "decision",
+        "label": "Valid Credentials?",
+        "metadata": {}
+      },
+      {
+        "id": "generate-session",
+        "kind": "process",
+        "label": "Generate Session/Token",
+        "metadata": {}
+      },
+      {
+        "id": "dashboard",
+        "kind": "end",
+        "label": "Redirect to Dashboard",
+        "metadata": {}
+      },
+      {
+        "id": "check-attempts",
+        "kind": "decision",
+        "label": "Max Attempts Exceeded?",
+        "metadata": {}
+      },
+      {
+        "id": "show-error",
+        "kind": "process",
+        "label": "Show Error Message",
+        "metadata": {}
+      },
+      {
+        "id": "lock-account",
+        "kind": "end",
+        "label": "Lock Account",
+        "metadata": {}
+      }
+    ]
+  },
+  "tokens": 2147,
+  "durationMs": 7487,
+  "traceId": "478c8d1d-9a71-4203-960e-586443c2f09f"
+}
