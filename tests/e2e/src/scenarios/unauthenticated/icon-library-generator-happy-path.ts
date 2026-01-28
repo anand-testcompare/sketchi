@@ -18,6 +18,8 @@ Success:
 - Delete removes icon and count updates.
 */
 
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { loadConfig } from "../../runner/config";
 import {
   captureScreenshot,
@@ -34,6 +36,10 @@ import {
 } from "../../runner/utils";
 import { sleep } from "../../runner/wait";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const fixturesDir = join(__dirname, "../../../fixtures/svgs");
+
 async function createLibraryWithName(
   // biome-ignore lint/suspicious/noExplicitAny: Stagehand instance type
   stagehand: any,
@@ -45,12 +51,16 @@ async function createLibraryWithName(
   await sleep(500);
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: Stagehand instance type
-async function uploadSvgFiles(stagehand: any): Promise<void> {
-  await stagehand.act(
-    "Upload 3 SVG files to the library. Use the upload button or drag-and-drop area. The SVGs should be simple valid SVGs."
-  );
-  await sleep(1000);
+// biome-ignore lint/suspicious/noExplicitAny: Playwright Page type
+async function uploadSvgFiles(page: any): Promise<void> {
+  const fixtures = [
+    join(fixturesDir, "palantir-workshop.svg"),
+    join(fixturesDir, "palantir-pipeline.svg"),
+    join(fixturesDir, "palantir-ontology.svg"),
+  ];
+
+  await page.locator('[data-testid="svg-file-input"]').setInputFiles(fixtures);
+  await sleep(1500); // Wait for uploads to process
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: Stagehand instance type
@@ -107,7 +117,7 @@ async function main() {
     const libraryName = `test-lib-${Date.now()}`;
     await createLibraryWithName(stagehand, libraryName);
 
-    await uploadSvgFiles(stagehand);
+    await uploadSvgFiles(page as any);
 
     const iconsLoaded = await verifyIconsLoaded(stagehand);
     if (!iconsLoaded) {
