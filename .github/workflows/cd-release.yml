@@ -83,55 +83,61 @@ jobs:
         id: bump_branch
         if: steps.skip_release.outputs.skip != 'true'
         run: |
-          BRANCH="chore/bump-version"
-          git checkout -B "$BRANCH"
+          BRANCH="chore/bump-version-${{ github.run_id }}-${{ github.run_attempt }}"
+          git checkout -b "$BRANCH"
           echo "branch=$BRANCH" >> $GITHUB_OUTPUT
 
       - name: Bump version
         id: bump_version
         if: steps.skip_release.outputs.skip != 'true'
         run: |
-          npm version patch --no-git-tag-version
-          NEW_VERSION=$(bun -e "console.log(require('./package.json').version)")
           CUR_VERSION="${{ steps.current_version.outputs.version }}"
           CUR_VERSION="${CUR_VERSION%%-*}"
-          NEW_VERSION_BASE="${NEW_VERSION%%-*}"
           IFS='.' read -r CUR_MAJOR CUR_MINOR _ <<< "$CUR_VERSION"
-          IFS='.' read -r NEW_MAJOR NEW_MINOR _ <<< "$NEW_VERSION_BASE"
-          if [ "$CUR_MAJOR" != "$NEW_MAJOR" ] || [ "$CUR_MINOR" != "$NEW_MINOR" ]; then
-            echo "Refusing to bump major/minor; patch-only enforced."
-            exit 1
-          fi
-          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "Bumped version from ${{ steps.current_version.outputs.version }} to $NEW_VERSION"
+
+          for _ in {1..10}; do
+            npm version patch --no-git-tag-version
+            NEW_VERSION=$(bun -e "console.log(require('./package.json').version)")
+            NEW_VERSION_BASE="${NEW_VERSION%%-*}"
+            IFS='.' read -r NEW_MAJOR NEW_MINOR _ <<< "$NEW_VERSION_BASE"
+            if [ "$CUR_MAJOR" != "$NEW_MAJOR" ] || [ "$CUR_MINOR" != "$NEW_MINOR" ]; then
+              echo "Refusing to bump major/minor; patch-only enforced."
+              exit 1
+            fi
+
+            TAG="v$NEW_VERSION"
+            if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+              echo "Tag $TAG already exists; bumping again."
+              continue
+            fi
+
+            echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+            echo "Bumped version from ${{ steps.current_version.outputs.version }} to $NEW_VERSION"
+            exit 0
+          done
+
+          echo "Failed to find unused patch version after 10 bumps."
+          exit 1
 
       - name: Commit version bump
         if: steps.skip_release.outputs.skip != 'true'
         run: |
           git add package.json
           git commit -m "chore: bump version to ${{ steps.bump_version.outputs.new_version }} [skip-release] [skip ci]"
-          git push --force --set-upstream origin "${{ steps.bump_branch.outputs.branch }}"
+          git push --set-upstream origin "${{ steps.bump_branch.outputs.branch }}"
 
-      - name: Create or update PR
+      - name: Create PR
         id: bump_pr
         if: steps.skip_release.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PR_TITLE="chore: bump version to ${{ steps.bump_version.outputs.new_version }}"
-          PR_BODY="Automated patch version bump."
-          BRANCH="${{ steps.bump_branch.outputs.branch }}"
-          if gh pr view "$BRANCH" --repo "$GITHUB_REPOSITORY" --json url -q .url > /dev/null 2>&1; then
-            PR_URL=$(gh pr view "$BRANCH" --repo "$GITHUB_REPOSITORY" --json url -q .url)
-            gh pr edit "$PR_URL" --title "$PR_TITLE" --body "$PR_BODY"
-          else
-            PR_URL=$(gh pr create \
-              --repo "$GITHUB_REPOSITORY" \
-              --base main \
-              --head "$BRANCH" \
-              --title "$PR_TITLE" \
-              --body "$PR_BODY")
-          fi
+          PR_URL=$(gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --base main \
+            --head "${{ steps.bump_branch.outputs.branch }}" \
+            --title "chore: bump version to ${{ steps.bump_version.outputs.new_version }}" \
+            --body "Automated patch version bump.")
           echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
 
       - name: Enable auto-merge
