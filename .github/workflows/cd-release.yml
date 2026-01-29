@@ -79,30 +79,96 @@ jobs:
         if: steps.skip_release.outputs.skip != 'true'
         run: echo "version=$(bun -e "console.log(require('./package.json').version)")" >> $GITHUB_OUTPUT
 
+      - name: Create bump branch
+        id: bump_branch
+        if: steps.skip_release.outputs.skip != 'true'
+        run: |
+          BRANCH="chore/bump-version-${{ github.run_id }}-${{ github.run_attempt }}"
+          git checkout -b "$BRANCH"
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+
       - name: Bump version
         id: bump_version
         if: steps.skip_release.outputs.skip != 'true'
         run: |
-          npm version patch --no-git-tag-version
-          NEW_VERSION=$(bun -e "console.log(require('./package.json').version)")
           CUR_VERSION="${{ steps.current_version.outputs.version }}"
           CUR_VERSION="${CUR_VERSION%%-*}"
-          NEW_VERSION_BASE="${NEW_VERSION%%-*}"
           IFS='.' read -r CUR_MAJOR CUR_MINOR _ <<< "$CUR_VERSION"
-          IFS='.' read -r NEW_MAJOR NEW_MINOR _ <<< "$NEW_VERSION_BASE"
-          if [ "$CUR_MAJOR" != "$NEW_MAJOR" ] || [ "$CUR_MINOR" != "$NEW_MINOR" ]; then
-            echo "Refusing to bump major/minor; patch-only enforced."
-            exit 1
-          fi
-          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "Bumped version from ${{ steps.current_version.outputs.version }} to $NEW_VERSION"
+
+          for _ in {1..10}; do
+            npm version patch --no-git-tag-version
+            NEW_VERSION=$(bun -e "console.log(require('./package.json').version)")
+            NEW_VERSION_BASE="${NEW_VERSION%%-*}"
+            IFS='.' read -r NEW_MAJOR NEW_MINOR _ <<< "$NEW_VERSION_BASE"
+            if [ "$CUR_MAJOR" != "$NEW_MAJOR" ] || [ "$CUR_MINOR" != "$NEW_MINOR" ]; then
+              echo "Refusing to bump major/minor; patch-only enforced."
+              exit 1
+            fi
+
+            TAG="v$NEW_VERSION"
+            if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+              echo "Tag $TAG already exists; bumping again."
+              continue
+            fi
+
+            echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+            echo "Bumped version from ${{ steps.current_version.outputs.version }} to $NEW_VERSION"
+            exit 0
+          done
+
+          echo "Failed to find unused patch version after 10 bumps."
+          exit 1
 
       - name: Commit version bump
         if: steps.skip_release.outputs.skip != 'true'
         run: |
           git add package.json
           git commit -m "chore: bump version to ${{ steps.bump_version.outputs.new_version }} [skip-release] [skip ci]"
-          git push origin HEAD:main
+          git push --set-upstream origin "${{ steps.bump_branch.outputs.branch }}"
+
+      - name: Create PR
+        id: bump_pr
+        if: steps.skip_release.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_URL=$(gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --base main \
+            --head "${{ steps.bump_branch.outputs.branch }}" \
+            --title "chore: bump version to ${{ steps.bump_version.outputs.new_version }}" \
+            --body "Automated patch version bump.")
+          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+
+      - name: Enable auto-merge
+        if: steps.skip_release.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge "${{ steps.bump_pr.outputs.pr_url }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --squash \
+            --auto
+
+      - name: Wait for PR merge
+        if: steps.skip_release.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_URL="${{ steps.bump_pr.outputs.pr_url }}"
+          for _ in {1..30}; do
+            MERGED_AT=$(gh pr view "$PR_URL" --repo "$GITHUB_REPOSITORY" --json mergedAt -q .mergedAt)
+            if [ -n "$MERGED_AT" ] && [ "$MERGED_AT" != "null" ]; then
+              echo "PR merged at $MERGED_AT"
+              git fetch origin main
+              git checkout main
+              git reset --hard origin/main
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "PR did not merge in time."
+          exit 1
 
       - name: Generate release notes
         id: release_notes
