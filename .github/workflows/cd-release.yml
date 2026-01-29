@@ -92,8 +92,8 @@ jobs:
           CUR_VERSION="${{ steps.current_version.outputs.version }}"
           CUR_VERSION="${CUR_VERSION%%-*}"
           NEW_VERSION_BASE="${NEW_VERSION%%-*}"
-          IFS='.' read -r CUR_MAJOR CUR_MINOR CUR_PATCH <<< "$CUR_VERSION"
-          IFS='.' read -r NEW_MAJOR NEW_MINOR NEW_PATCH <<< "$NEW_VERSION_BASE"
+          IFS='.' read -r CUR_MAJOR CUR_MINOR _ <<< "$CUR_VERSION"
+          IFS='.' read -r NEW_MAJOR NEW_MINOR _ <<< "$NEW_VERSION_BASE"
           if [ "$CUR_MAJOR" != "$NEW_MAJOR" ] || [ "$CUR_MINOR" != "$NEW_MINOR" ]; then
             echo "Refusing to bump major/minor; patch-only enforced."
             exit 1
