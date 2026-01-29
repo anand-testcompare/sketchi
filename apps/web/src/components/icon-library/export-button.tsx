@@ -87,7 +87,7 @@ const LABEL_PADDING = 8;
 
 const SVG_EXTENSION_REGEX = /\.svg$/i;
 const SEPARATOR_REGEX = /[-_]/g;
-const VIEWBOX_SPLIT_REGEX = /\s+/;
+const VIEWBOX_SPLIT_REGEX = /[,\s]+/;
 
 const formatLabelText = (filename: string) =>
   filename

@@ -26,6 +26,9 @@ export const metadata: Metadata = {
   description: "sketchi",
 };
 
+const safeSerialize = (value: string) =>
+  JSON.stringify(value).replace(/</g, "\\u003c");
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -33,7 +36,7 @@ export default function RootLayout({
 }>) {
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL ?? "";
   const convexScript = {
-    __html: `window.__SKETCHI_CONVEX_URL=${JSON.stringify(convexUrl)};`,
+    __html: `window.__SKETCHI_CONVEX_URL=${safeSerialize(convexUrl)};`,
   };
   return (
     <html lang="en" suppressHydrationWarning>

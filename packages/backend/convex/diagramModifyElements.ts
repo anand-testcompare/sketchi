@@ -85,6 +85,18 @@ interface ValidationToolOutput {
   changes?: DiagramChangeSet;
 }
 
+function isValidationToolOutput(
+  output: unknown
+): output is ValidationToolOutput {
+  if (!output || typeof output !== "object") {
+    return false;
+  }
+  if (!("ok" in output)) {
+    return false;
+  }
+  return typeof (output as { ok?: unknown }).ok === "boolean";
+}
+
 interface ModificationTracking {
   lastSuccessful: LastSuccessfulDiff | null;
   lastIssues: DiagramIssue[];
@@ -339,7 +351,8 @@ function collectToolOutputs(result: {
   return result.steps.flatMap((step) =>
     (step.toolResults ?? [])
       .filter((toolResult) => toolResult.toolName === "validateAndApplyDiff")
-      .map((toolResult) => toolResult.output as ValidationToolOutput)
+      .map((toolResult) => toolResult.output)
+      .filter(isValidationToolOutput)
   );
 }
 
