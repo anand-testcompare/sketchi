@@ -32,7 +32,12 @@ const summaryMdPath = join(outputDir, "visual-grading.md");
 
 const requiredEnv = ["OPENROUTER_API_KEY"] as const;
 
-type ChartType = "flowchart" | "architecture" | "decision-tree";
+type ChartType =
+  | "flowchart"
+  | "architecture"
+  | "decision-tree"
+  | "mindmap"
+  | "sequence";
 
 interface Scenario {
   name: string;
@@ -64,6 +69,30 @@ const SCENARIOS: Scenario[] = [
     prompt:
       "Create a decision flowchart: User logs in -> Check credentials -> If valid: Show dashboard, If invalid: Show error",
     chartType: "decision-tree",
+    minScore: 60,
+    layoutDirection: "TB",
+  },
+  {
+    name: "mindmap-central-topic",
+    prompt:
+      "Create a mindmap with central topic 'Project Planning' and 4 branches: Goals, Timeline, Resources, and Risks. Each branch should have 2-3 sub-topics.",
+    chartType: "mindmap",
+    minScore: 60,
+    layoutDirection: "TB",
+  },
+  {
+    name: "sequence-three-participants",
+    prompt:
+      "Create a sequence diagram showing User, API Gateway, and Database. The flow: User sends login request to API, API queries Database for credentials, Database returns user data, API validates and returns auth token to User.",
+    chartType: "sequence",
+    minScore: 60,
+    layoutDirection: "LR",
+  },
+  {
+    name: "architecture-fifteen-components",
+    prompt:
+      "Create an architecture diagram with at least 15 components: Load Balancer, 3 API Servers, Auth Service, User Service, Order Service, Payment Service, Notification Service, Message Queue, Cache (Redis), Primary Database, Read Replica, CDN, S3 Storage, and Monitoring Service. Show connections between related services.",
+    chartType: "architecture",
     minScore: 60,
     layoutDirection: "TB",
   },
