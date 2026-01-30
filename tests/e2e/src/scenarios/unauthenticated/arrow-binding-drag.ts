@@ -40,11 +40,16 @@ interface ArrowEndpoint {
   y: number;
 }
 
-interface ShapeBounds {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+interface ShapePoint {
+  clientX: number;
+  clientY: number;
+}
+
+interface DragPayload {
+  clientX: number;
+  clientY: number;
+  offsetX: number;
+  offsetY: number;
 }
 
 interface DiagramResponse {
@@ -67,7 +72,10 @@ async function generateTestDiagram(baseUrl: string): Promise<string> {
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to generate diagram: ${response.statusText}`);
+    const details = await response.text();
+    throw new Error(
+      `Failed to generate diagram: ${response.statusText} (${response.status}) ${details}`
+    );
   }
 
   const data = (await response.json()) as DiagramResponse;
@@ -79,23 +87,30 @@ async function generateTestDiagram(baseUrl: string): Promise<string> {
   return shareUrl;
 }
 
+async function getSceneElements(page: {
+  evaluate: <T>(fn: () => T) => Promise<T>;
+}): Promise<unknown[] | null> {
+  return await page.evaluate(() => {
+    const raw = localStorage.getItem("excalidraw");
+    if (!raw) {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  });
+}
+
 async function waitForExcalidrawReady(page: {
   evaluate: <T>(fn: () => T) => Promise<T>;
 }): Promise<boolean> {
   return await waitForCondition(
     async () => {
-      return await page.evaluate(() => {
-        const api = (window as { excalidrawAPI?: unknown }).excalidrawAPI;
-        if (!api || typeof api !== "object") {
-          return false;
-        }
-        const apiObj = api as { getSceneElements?: () => unknown[] };
-        if (typeof apiObj.getSceneElements !== "function") {
-          return false;
-        }
-        const elements = apiObj.getSceneElements();
-        return Array.isArray(elements) && elements.length > 0;
-      });
+      const elements = await getSceneElements(page);
+      return Array.isArray(elements) && elements.length > 0;
     },
     { timeoutMs: 15_000, label: "excalidraw ready" }
   );
@@ -104,97 +119,143 @@ async function waitForExcalidrawReady(page: {
 async function getArrowEndpoint(page: {
   evaluate: <T>(fn: () => T) => Promise<T>;
 }): Promise<ArrowEndpoint | null> {
-  return await page.evaluate(() => {
-    const api = (window as { excalidrawAPI?: unknown }).excalidrawAPI;
-    if (!api || typeof api !== "object") {
-      return null;
-    }
+  const elements = await getSceneElements(page);
+  if (!elements) {
+    return null;
+  }
 
-    const apiObj = api as { getSceneElements?: () => unknown[] };
-    if (typeof apiObj.getSceneElements !== "function") {
-      return null;
-    }
+  interface ArrowElement {
+    type: string;
+    x: number;
+    y: number;
+    points?: [number, number][];
+  }
 
-    interface ArrowElement {
-      type: string;
-      x: number;
-      y: number;
-      points?: [number, number][];
-    }
+  const arrow = (elements as ArrowElement[]).find((e) => e.type === "arrow");
+  if (!arrow?.points || arrow.points.length === 0) {
+    return null;
+  }
 
-    const elements = apiObj.getSceneElements() as ArrowElement[];
-    const arrow = elements.find((e) => e.type === "arrow");
-    if (!arrow?.points || arrow.points.length === 0) {
-      return null;
-    }
+  const lastPoint = arrow.points.at(-1);
+  if (!lastPoint) {
+    return null;
+  }
 
-    const lastPoint = arrow.points.at(-1);
-    if (!lastPoint) {
-      return null;
-    }
-
-    return {
-      x: arrow.x + lastPoint[0],
-      y: arrow.y + lastPoint[1],
-    };
-  });
+  return {
+    x: arrow.x + lastPoint[0],
+    y: arrow.y + lastPoint[1],
+  };
 }
 
-async function getFirstRectangleBounds(page: {
+async function getFirstRectanglePixel(page: {
   evaluate: <T>(fn: () => T) => Promise<T>;
-}): Promise<ShapeBounds | null> {
+}): Promise<ShapePoint | null> {
   return await page.evaluate(() => {
-    const api = (window as { excalidrawAPI?: unknown }).excalidrawAPI;
-    if (!api || typeof api !== "object") {
+    const canvas = document.querySelector("canvas") as HTMLCanvasElement | null;
+    if (!canvas) {
+      return null;
+    }
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
       return null;
     }
 
-    const apiObj = api as { getSceneElements?: () => unknown[] };
-    if (typeof apiObj.getSceneElements !== "function") {
-      return null;
+    const target = { r: 0xa5, g: 0xd8, b: 0xff };
+    const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const { data, width, height } = image;
+    const threshold = 8;
+    const stride = 2;
+
+    for (let y = 0; y < height; y += stride) {
+      for (let x = 0; x < width; x += stride) {
+        const idx = (y * width + x) * 4;
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+        const a = data[idx + 3];
+        if (a < 200) {
+          continue;
+        }
+        if (
+          Math.abs(r - target.r) <= threshold &&
+          Math.abs(g - target.g) <= threshold &&
+          Math.abs(b - target.b) <= threshold
+        ) {
+          const rect = canvas.getBoundingClientRect();
+          const scaleX = rect.width / canvas.width;
+          const scaleY = rect.height / canvas.height;
+          return {
+            clientX: rect.left + x * scaleX,
+            clientY: rect.top + y * scaleY,
+          };
+        }
+      }
     }
 
-    interface ShapeElement {
-      type: string;
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    }
-
-    const elements = apiObj.getSceneElements() as ShapeElement[];
-    const rect = elements.find(
-      (e) => e.type === "rectangle" || e.type === "ellipse"
-    );
-    if (!rect) {
-      return null;
-    }
-
-    return {
-      x: rect.x,
-      y: rect.y,
-      width: rect.width,
-      height: rect.height,
-    };
+    return null;
   });
 }
 
 async function dragShape(
-  // biome-ignore lint/suspicious/noExplicitAny: Playwright Page type varies
-  page: any,
-  shapeBounds: ShapeBounds,
+  page: {
+    evaluate: <T>(fn: (args: DragPayload) => T, args: DragPayload) => Promise<T>;
+  },
+  shapePoint: ShapePoint,
   offsetX: number,
   offsetY: number
 ): Promise<void> {
-  const centerX = shapeBounds.x + shapeBounds.width / 2;
-  const centerY = shapeBounds.y + shapeBounds.height / 2;
+  const startX = shapePoint.clientX;
+  const startY = shapePoint.clientY;
+  const endX = startX + offsetX;
+  const endY = startY + offsetY;
 
-  await page.mouse.move(centerX, centerY);
-  await page.mouse.down();
-  await sleep(100);
-  await page.mouse.move(centerX + offsetX, centerY + offsetY, { steps: 10 });
-  await page.mouse.up();
+  if (typeof page.dragAndDrop === "function") {
+    await page.dragAndDrop(startX, startY, endX, endY, { steps: 12 });
+    return;
+  }
+
+  await page.evaluate(
+    ({ clientX, clientY, offsetX, offsetY }) => {
+      const canvas = document.querySelector("canvas") as HTMLCanvasElement | null;
+      if (!canvas) {
+        return;
+      }
+      const endX = clientX + offsetX;
+      const endY = clientY + offsetY;
+
+      canvas.dispatchEvent(
+        new PointerEvent("pointerdown", {
+          bubbles: true,
+          clientX,
+          clientY,
+          buttons: 1,
+          pointerType: "mouse",
+        })
+      );
+      canvas.dispatchEvent(
+        new PointerEvent("pointermove", {
+          bubbles: true,
+          clientX: endX,
+          clientY: endY,
+          buttons: 1,
+          pointerType: "mouse",
+        })
+      );
+      canvas.dispatchEvent(
+        new PointerEvent("pointerup", {
+          bubbles: true,
+          clientX: endX,
+          clientY: endY,
+          buttons: 0,
+          pointerType: "mouse",
+        })
+      );
+    },
+    { clientX: startX, clientY: startY, offsetX, offsetY }
+  );
+  await sleep(200);
 }
+
 
 async function main() {
   const cfg = loadConfig();
@@ -238,11 +299,11 @@ async function main() {
       `Initial arrow endpoint: (${initialEndpoint.x}, ${initialEndpoint.y})`
     );
 
-    const shapeBounds = await getFirstRectangleBounds(
-      page as Parameters<typeof getFirstRectangleBounds>[0]
+    const shapePixel = await getFirstRectanglePixel(
+      page as Parameters<typeof getFirstRectanglePixel>[0]
     );
-    if (!shapeBounds) {
-      throw new Error("Could not find rectangle/shape to drag");
+    if (!shapePixel) {
+      throw new Error("Could not find rectangle/shape pixel to drag");
     }
 
     // biome-ignore lint/suspicious/noExplicitAny: Playwright Page types
@@ -254,7 +315,7 @@ async function main() {
     const dragOffsetX = 100;
     const dragOffsetY = 50;
 
-    await dragShape(page, shapeBounds, dragOffsetX, dragOffsetY);
+    await dragShape(page, shapePixel, dragOffsetX, dragOffsetY);
     await sleep(1000);
 
     console.log("Extracting post-drag arrow coordinates...");

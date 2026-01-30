@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { IntermediateFormat } from "../lib/diagram-intermediate";
+import type { DiagramType, IntermediateFormat } from "../lib/diagram-intermediate";
 import { applyTemplateDefaults } from "../lib/template-autofill";
 import { ArchitectureTemplate, FlowchartTemplate } from "../lib/templates";
 
@@ -87,7 +87,7 @@ describe("applyTemplateDefaults", () => {
       nodes: [{ id: "a", label: "A" }],
       edges: [],
       graphOptions: {
-        diagramType: "unknown" as IntermediateFormat["graphOptions"]["diagramType"],
+        diagramType: "unknown" as DiagramType,
       },
     };
 
