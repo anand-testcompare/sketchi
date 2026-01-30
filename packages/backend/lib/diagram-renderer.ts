@@ -9,6 +9,7 @@ import { layoutIntermediateDiagram } from "./diagram-layout";
 import type { Diagram } from "./diagram-structure";
 import type { ExcalidrawStyleOverrides } from "./excalidraw-elements";
 import { convertLayoutedToExcalidraw } from "./excalidraw-elements";
+import { applyTemplateDefaults } from "./template-autofill";
 
 export interface RenderedDiagramResult {
   diagram: Diagram;
@@ -42,10 +43,11 @@ function toExcalidrawStyleOverrides(
 export function renderIntermediateDiagram(
   intermediate: IntermediateFormat
 ): RenderedDiagramResult {
-  const { diagram, layouted } = layoutIntermediateDiagram(intermediate);
+  const enriched = applyTemplateDefaults(intermediate);
+  const { diagram, layouted } = layoutIntermediateDiagram(enriched);
   const elements = convertLayoutedToExcalidraw(
     layouted,
-    toExcalidrawStyleOverrides(intermediate.graphOptions?.style)
+    toExcalidrawStyleOverrides(enriched.graphOptions?.style)
   );
 
   return {
@@ -53,8 +55,8 @@ export function renderIntermediateDiagram(
     layouted,
     elements,
     stats: {
-      nodeCount: intermediate.nodes.length,
-      edgeCount: intermediate.edges.length,
+      nodeCount: enriched.nodes.length,
+      edgeCount: enriched.edges.length,
       shapeCount: diagram.shapes.length,
       arrowCount: diagram.arrows.length,
     },
