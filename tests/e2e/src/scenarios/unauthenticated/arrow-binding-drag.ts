@@ -49,13 +49,16 @@ interface ShapeBounds {
 
 interface DiagramResponse {
   shareUrl?: string;
+  shareLink?: {
+    url?: string;
+  };
   error?: string;
 }
 
 async function generateTestDiagram(baseUrl: string): Promise<string> {
   const prompt =
     "Two boxes labeled A and B connected by an arrow from A to B. Simple flowchart.";
-  const apiUrl = `${baseUrl}/api/diagram/generate`;
+  const apiUrl = `${baseUrl}/api/diagrams/generate`;
 
   const response = await fetch(apiUrl, {
     method: "POST",
@@ -68,11 +71,12 @@ async function generateTestDiagram(baseUrl: string): Promise<string> {
   }
 
   const data = (await response.json()) as DiagramResponse;
-  if (!data.shareUrl) {
+  const shareUrl = data.shareLink?.url ?? data.shareUrl;
+  if (!shareUrl) {
     throw new Error("No share URL returned from diagram generation");
   }
 
-  return data.shareUrl;
+  return shareUrl;
 }
 
 async function waitForExcalidrawReady(page: {

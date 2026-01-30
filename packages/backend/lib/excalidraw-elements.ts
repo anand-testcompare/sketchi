@@ -4,6 +4,7 @@ export interface ExcalidrawStyleOverrides {
   shapeFill?: string;
   shapeStroke?: string;
   arrowStroke?: string;
+  arrowhead?: "arrow" | null;
   textColor?: string;
   fontSize?: number;
   fontFamily?: number;
@@ -24,6 +25,7 @@ interface StyleConfig {
   fontSize: number;
   fontFamily: number;
   arrowStroke: string;
+  arrowhead: "arrow" | null;
 }
 
 function nextIndex(idx: IndexRef): string {
@@ -41,6 +43,7 @@ function getStyleConfig(style?: ExcalidrawStyleOverrides): StyleConfig {
     fontSize: style?.fontSize ?? 16,
     fontFamily: style?.fontFamily ?? 5,
     arrowStroke: style?.arrowStroke ?? shapeStroke,
+    arrowhead: style?.arrowhead ?? "arrow",
   };
 }
 
@@ -176,7 +179,7 @@ function buildArrowElements(
       fixedPoint: null,
     },
     startArrowhead: null,
-    endArrowhead: "arrow",
+    endArrowhead: style.arrowhead,
   };
 
   if (arrow.elbowed) {

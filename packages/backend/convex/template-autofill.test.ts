@@ -87,7 +87,7 @@ describe("applyTemplateDefaults", () => {
       nodes: [{ id: "a", label: "A" }],
       edges: [],
       graphOptions: {
-        diagramType: "flowchart",
+        diagramType: "unknown" as IntermediateFormat["graphOptions"]["diagramType"],
       },
     };
 

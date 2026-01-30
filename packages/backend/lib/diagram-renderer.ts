@@ -10,6 +10,7 @@ import type { Diagram } from "./diagram-structure";
 import type { ExcalidrawStyleOverrides } from "./excalidraw-elements";
 import { convertLayoutedToExcalidraw } from "./excalidraw-elements";
 import { applyTemplateDefaults } from "./template-autofill";
+import { getTemplateForType } from "./templates";
 
 export interface RenderedDiagramResult {
   diagram: Diagram;
@@ -24,19 +25,17 @@ export interface RenderedDiagramResult {
 }
 
 function toExcalidrawStyleOverrides(
-  style?: GraphStyle
+  style?: GraphStyle,
+  arrowhead?: "arrow" | null
 ): ExcalidrawStyleOverrides | undefined {
-  if (!style) {
-    return undefined;
-  }
-
   return {
-    shapeFill: style.shapeFill,
-    shapeStroke: style.shapeStroke,
-    arrowStroke: style.arrowStroke,
-    textColor: style.textColor,
-    fontSize: style.fontSize,
-    fontFamily: style.fontFamily,
+    shapeFill: style?.shapeFill,
+    shapeStroke: style?.shapeStroke,
+    arrowStroke: style?.arrowStroke,
+    arrowhead,
+    textColor: style?.textColor,
+    fontSize: style?.fontSize,
+    fontFamily: style?.fontFamily,
   };
 }
 
@@ -44,10 +43,14 @@ export function renderIntermediateDiagram(
   intermediate: IntermediateFormat
 ): RenderedDiagramResult {
   const enriched = applyTemplateDefaults(intermediate);
+  const template = getTemplateForType(enriched.graphOptions?.diagramType);
   const { diagram, layouted } = layoutIntermediateDiagram(enriched);
   const elements = convertLayoutedToExcalidraw(
     layouted,
-    toExcalidrawStyleOverrides(enriched.graphOptions?.style)
+    toExcalidrawStyleOverrides(
+      enriched.graphOptions?.style,
+      template.edgeDefaults.arrowhead
+    )
   );
 
   return {
