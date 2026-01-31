@@ -77,12 +77,38 @@ const MindMapGradingSchema = BaseGradingSchema.extend({
   labelsReadable: z.boolean().describe("All labels are readable"),
 });
 
+const SequenceGradingSchema = BaseGradingSchema.extend({
+  hasParticipants: z
+    .boolean()
+    .describe("Participants/actors are clearly labeled at top"),
+  hasLifelines: z
+    .boolean()
+    .describe("Vertical lifelines extend down from participants"),
+  messagesLeftToRight: z
+    .boolean()
+    .describe("Messages flow horizontally between lifelines"),
+  chronologicalOrder: z
+    .boolean()
+    .describe("Messages are ordered top-to-bottom chronologically"),
+  arrowsLabeled: z.boolean().describe("Message arrows have descriptive labels"),
+  noOverlappingMessages: z
+    .boolean()
+    .describe("Messages don't overlap each other"),
+  labelsReadable: z.boolean().describe("All labels are readable"),
+});
+
 export type FlowchartGrading = z.infer<typeof FlowchartGradingSchema>;
 export type ArchitectureGrading = z.infer<typeof ArchitectureGradingSchema>;
 export type DecisionTreeGrading = z.infer<typeof DecisionTreeGradingSchema>;
 export type MindMapGrading = z.infer<typeof MindMapGradingSchema>;
+export type SequenceGrading = z.infer<typeof SequenceGradingSchema>;
 
-type ChartType = "flowchart" | "architecture" | "decision-tree" | "mindmap";
+type ChartType =
+  | "flowchart"
+  | "architecture"
+  | "decision-tree"
+  | "mindmap"
+  | "sequence";
 
 const GRADING_PROMPTS: Record<ChartType, string> = {
   flowchart: `You are evaluating a FLOWCHART diagram. Grade it on these specific criteria:
@@ -149,6 +175,23 @@ SCORING GUIDE:
 - 70-89: Good radial structure but colors not distinct or some overlap
 - 50-69: Central topic present but branches don't radiate properly
 - Below 50: No clear center, or looks like a tree/flowchart instead of mind map`,
+
+  sequence: `You are evaluating a SEQUENCE diagram. Grade it on these specific criteria:
+
+LAYOUT REQUIREMENTS:
+- Participants/actors must be clearly labeled at the TOP
+- Vertical LIFELINES must extend down from each participant
+- Messages must flow HORIZONTALLY between lifelines
+- Messages must be ordered TOP-TO-BOTTOM chronologically
+- Message arrows must have descriptive labels
+- Messages should NOT overlap each other
+- All labels readable
+
+SCORING GUIDE:
+- 90-100: Perfect sequence diagram with clear participants, labeled messages, and proper chronological flow
+- 70-89: Good structure but missing some labels or slight misalignment
+- 50-69: Recognizable sequence but poor layout or unlabeled messages
+- Below 50: Not a proper sequence diagram, missing lifelines, or unreadable`,
 };
 
 function getSchemaForType(chartType: ChartType) {
@@ -161,6 +204,8 @@ function getSchemaForType(chartType: ChartType) {
       return DecisionTreeGradingSchema;
     case "mindmap":
       return MindMapGradingSchema;
+    case "sequence":
+      return SequenceGradingSchema;
     default:
       return FlowchartGradingSchema;
   }

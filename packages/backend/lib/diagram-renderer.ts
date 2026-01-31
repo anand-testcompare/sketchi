@@ -9,6 +9,8 @@ import { layoutIntermediateDiagram } from "./diagram-layout";
 import type { Diagram } from "./diagram-structure";
 import type { ExcalidrawStyleOverrides } from "./excalidraw-elements";
 import { convertLayoutedToExcalidraw } from "./excalidraw-elements";
+import { applyTemplateDefaults } from "./template-autofill";
+import { getTemplateForType } from "./templates";
 
 export interface RenderedDiagramResult {
   diagram: Diagram;
@@ -23,29 +25,32 @@ export interface RenderedDiagramResult {
 }
 
 function toExcalidrawStyleOverrides(
-  style?: GraphStyle
+  style?: GraphStyle,
+  arrowhead?: "arrow" | null
 ): ExcalidrawStyleOverrides | undefined {
-  if (!style) {
-    return undefined;
-  }
-
   return {
-    shapeFill: style.shapeFill,
-    shapeStroke: style.shapeStroke,
-    arrowStroke: style.arrowStroke,
-    textColor: style.textColor,
-    fontSize: style.fontSize,
-    fontFamily: style.fontFamily,
+    shapeFill: style?.shapeFill,
+    shapeStroke: style?.shapeStroke,
+    arrowStroke: style?.arrowStroke,
+    arrowhead,
+    textColor: style?.textColor,
+    fontSize: style?.fontSize,
+    fontFamily: style?.fontFamily,
   };
 }
 
 export function renderIntermediateDiagram(
   intermediate: IntermediateFormat
 ): RenderedDiagramResult {
-  const { diagram, layouted } = layoutIntermediateDiagram(intermediate);
+  const enriched = applyTemplateDefaults(intermediate);
+  const template = getTemplateForType(enriched.graphOptions?.diagramType);
+  const { diagram, layouted } = layoutIntermediateDiagram(enriched);
   const elements = convertLayoutedToExcalidraw(
     layouted,
-    toExcalidrawStyleOverrides(intermediate.graphOptions?.style)
+    toExcalidrawStyleOverrides(
+      enriched.graphOptions?.style,
+      template.edgeDefaults.arrowhead
+    )
   );
 
   return {
@@ -53,8 +58,8 @@ export function renderIntermediateDiagram(
     layouted,
     elements,
     stats: {
-      nodeCount: intermediate.nodes.length,
-      edgeCount: intermediate.edges.length,
+      nodeCount: enriched.nodes.length,
+      edgeCount: enriched.edges.length,
       shapeCount: diagram.shapes.length,
       arrowCount: diagram.arrows.length,
     },

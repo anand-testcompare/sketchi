@@ -4,6 +4,7 @@ export interface ExcalidrawStyleOverrides {
   shapeFill?: string;
   shapeStroke?: string;
   arrowStroke?: string;
+  arrowhead?: "arrow" | null;
   textColor?: string;
   fontSize?: number;
   fontFamily?: number;
@@ -24,6 +25,7 @@ interface StyleConfig {
   fontSize: number;
   fontFamily: number;
   arrowStroke: string;
+  arrowhead: "arrow" | null;
 }
 
 function nextIndex(idx: IndexRef): string {
@@ -41,6 +43,7 @@ function getStyleConfig(style?: ExcalidrawStyleOverrides): StyleConfig {
     fontSize: style?.fontSize ?? 16,
     fontFamily: style?.fontFamily ?? 5,
     arrowStroke: style?.arrowStroke ?? shapeStroke,
+    arrowhead: style?.arrowhead ?? "arrow",
   };
 }
 
@@ -176,7 +179,7 @@ function buildArrowElements(
       fixedPoint: null,
     },
     startArrowhead: null,
-    endArrowhead: "arrow",
+    endArrowhead: style.arrowhead,
   };
 
   if (arrow.elbowed) {
@@ -234,6 +237,76 @@ function buildArrowElements(
   ];
 }
 
+function addArrowToShape(
+  arrowsByShape: Map<string, Set<string>>,
+  shapeId: string,
+  arrowId: string
+): void {
+  if (!arrowsByShape.has(shapeId)) {
+    arrowsByShape.set(shapeId, new Set());
+  }
+  const arrowSet = arrowsByShape.get(shapeId);
+  if (arrowSet) {
+    arrowSet.add(arrowId);
+  }
+}
+
+function buildArrowShapeMap(
+  elements: Record<string, unknown>[]
+): Map<string, Set<string>> {
+  const arrowsByShape = new Map<string, Set<string>>();
+
+  for (const element of elements) {
+    if (element.type !== "arrow") {
+      continue;
+    }
+
+    const startBinding = element.startBinding as { elementId: string } | null;
+    const endBinding = element.endBinding as { elementId: string } | null;
+    const arrowId = element.id as string;
+
+    if (startBinding?.elementId) {
+      addArrowToShape(arrowsByShape, startBinding.elementId, arrowId);
+    }
+    if (endBinding?.elementId) {
+      addArrowToShape(arrowsByShape, endBinding.elementId, arrowId);
+    }
+  }
+
+  return arrowsByShape;
+}
+
+const SHAPE_TYPES = ["rectangle", "ellipse", "diamond"];
+
+function normalizeArrowBindings(
+  elements: Record<string, unknown>[]
+): Record<string, unknown>[] {
+  const arrowsByShape = buildArrowShapeMap(elements);
+
+  for (const element of elements) {
+    const isShape = SHAPE_TYPES.includes(element.type as string);
+    if (!isShape) {
+      continue;
+    }
+
+    const arrowIds = arrowsByShape.get(element.id as string);
+    if (!arrowIds || arrowIds.size === 0) {
+      continue;
+    }
+
+    const existingBounds =
+      (element.boundElements as Array<{ id: string; type: string }>) ?? [];
+    const arrowBindings = Array.from(arrowIds).map((id) => ({
+      id,
+      type: "arrow",
+    }));
+
+    element.boundElements = [...existingBounds, ...arrowBindings];
+  }
+
+  return elements;
+}
+
 export function convertLayoutedToExcalidraw(
   layouted: LayoutedDiagram,
   style?: ExcalidrawStyleOverrides
@@ -250,5 +323,5 @@ export function convertLayoutedToExcalidraw(
     elements.push(...buildArrowElements(arrow, resolvedStyle, idx));
   }
 
-  return elements;
+  return normalizeArrowBindings(elements);
 }

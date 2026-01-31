@@ -43,6 +43,21 @@ function resolveNodeColor(node: IntermediateNode): string | undefined {
   return typeof color === "string" ? color : undefined;
 }
 
+function resolveNodeDimension(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return undefined;
+  }
+  return value > 0 ? value : undefined;
+}
+
+function resolveNodeWidth(node: IntermediateNode): number | undefined {
+  return resolveNodeDimension(node.metadata?.width);
+}
+
+function resolveNodeHeight(node: IntermediateNode): number | undefined {
+  return resolveNodeDimension(node.metadata?.height);
+}
+
 function normalizeEdgeRouting(value: unknown): EdgeRouting | undefined {
   if (value === "elbow" || value === "straight") {
     return value;
@@ -106,6 +121,8 @@ export function convertIntermediateToDiagram(
     id: node.id,
     label: { text: node.label },
     backgroundColor: resolveNodeColor(node),
+    width: resolveNodeWidth(node),
+    height: resolveNodeHeight(node),
   }));
 
   const arrows: ArrowElement[] = sortedEdges.map((edge, index) => ({
