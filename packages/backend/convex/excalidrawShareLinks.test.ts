@@ -9,6 +9,7 @@ import { modules } from "./test.setup";
 
 const t = convexTest(schema, modules);
 const shareLinksApi = api.excalidrawShareLinks;
+const DECRYPTION_ERROR_PATTERN = /Decryption failed|invalid key|corrupted/i;
 
 function buildValidExcalidrawElements() {
   const updated = 1_725_000_000_000;
@@ -343,4 +344,49 @@ test("parseShareLinkToElements rejects invalid url", async () => {
       url: "https://example.com",
     })
   ).rejects.toThrow("Invalid Excalidraw share URL format");
+});
+
+test("parses V2 format share link", async () => {
+  const elements = buildValidExcalidrawElements();
+  const appState = { viewBackgroundColor: "#e8f5e9" };
+
+  const created = await t.action(shareLinksApi.createShareLinkFromElements, {
+    elements,
+    appState,
+  });
+
+  const result = await t.action(shareLinksApi.parseShareLinkToElements, {
+    url: created.url,
+  });
+
+  expect(result.elements).toBeTruthy();
+  expect(Array.isArray(result.elements)).toBe(true);
+  expect(result.elements.length).toBeGreaterThan(0);
+  expect(result.appState).toBeTruthy();
+  expect(typeof result.appState).toBe("object");
+  expect(result.appState.viewBackgroundColor).toBe("#e8f5e9");
+});
+
+test("V2 parsing error message is meaningful", async () => {
+  const elements = buildValidExcalidrawElements();
+  const appState = { viewBackgroundColor: "#fff3e0" };
+
+  const created = await t.action(shareLinksApi.createShareLinkFromElements, {
+    elements,
+    appState,
+  });
+
+  const [shareId] = created.url.split("#json=")[1]?.split(",") ?? [];
+  const corruptedUrl = `https://excalidraw.com/#json=${shareId},AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=`;
+
+  try {
+    await t.action(shareLinksApi.parseShareLinkToElements, {
+      url: corruptedUrl,
+    });
+    throw new Error("Expected error to be thrown");
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error);
+    const errorMessage = (error as Error).message;
+    expect(errorMessage).toMatch(DECRYPTION_ERROR_PATTERN);
+  }
 });
