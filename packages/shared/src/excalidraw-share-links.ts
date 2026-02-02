@@ -92,8 +92,6 @@ function isV2Format(buffer: Uint8Array): boolean {
   return version === CONCAT_BUFFERS_VERSION;
 }
 
-// V2 outer: [version][len][encodingMetadata][len][IV][len][ciphertext]
-// V2 inner (after decrypt+decompress): [version][len][contentsMetadata][len][scene JSON]
 async function parseV2(
   encryptedBuffer: Uint8Array,
   key: CryptoKey
@@ -134,6 +132,16 @@ async function parseV2(
     decompressed = decompressBuffer(decrypted);
   } else {
     decompressed = decrypted;
+  }
+
+  const decompressedStr = new TextDecoder().decode(decompressed);
+
+  if (decompressedStr.startsWith("{")) {
+    try {
+      return JSON.parse(decompressedStr) as ExcalidrawShareLinkPayload;
+    } catch {
+      throw new Error("V2 parsing failed: invalid scene JSON");
+    }
   }
 
   const innerBuffers = splitBuffers(decompressed);
@@ -179,20 +187,36 @@ async function parseV1(
   }
 }
 
+function base64UrlToBytes(str: string): Uint8Array {
+  const base64 = str.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+  return Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
+}
+
 async function importKey(keyString: string): Promise<CryptoKey> {
+  const keyBytes = base64UrlToBytes(keyString);
+  const alg = keyBytes.length === 32 ? "A256GCM" : "A128GCM";
   return await crypto.subtle.importKey(
     "jwk",
-    { kty: "oct", k: keyString, alg: "A128GCM" },
+    { kty: "oct", k: keyString, alg },
     { name: "AES-GCM" },
     false,
     ["decrypt"]
   );
 }
 
-/**
- * Parse an Excalidraw share link URL and return the diagram payload.
- * Supports V2 (compressed) and V1 (legacy) formats with automatic detection.
- */
+function isBase64EncodedData(str: string): boolean {
+  if (str.length < 20) {
+    return false;
+  }
+  try {
+    const decoded = Uint8Array.from(atob(str), (c) => c.charCodeAt(0));
+    return isV2Format(decoded);
+  } catch {
+    return false;
+  }
+}
+
 export async function parseExcalidrawShareLink(
   url: string
 ): Promise<ExcalidrawShareLinkPayload> {
@@ -201,18 +225,24 @@ export async function parseExcalidrawShareLink(
     throw new Error("Invalid Excalidraw share URL format");
   }
 
-  const id = match[1];
+  const idOrData = match[1];
   const keyString = match[2];
 
-  if (!(id && keyString)) {
+  if (!(idOrData && keyString)) {
     throw new Error("Invalid Excalidraw share URL format: missing id or key");
   }
 
-  const response = await fetch(`${EXCALIDRAW_GET_URL}${id}`);
-  if (!response.ok) {
-    throw new Error(`Fetch failed: ${response.status}`);
+  let encryptedBuffer: Uint8Array;
+
+  if (isBase64EncodedData(idOrData)) {
+    encryptedBuffer = Uint8Array.from(atob(idOrData), (c) => c.charCodeAt(0));
+  } else {
+    const response = await fetch(`${EXCALIDRAW_GET_URL}${idOrData}`);
+    if (!response.ok) {
+      throw new Error(`Fetch failed: ${response.status}`);
+    }
+    encryptedBuffer = new Uint8Array(await response.arrayBuffer());
   }
-  const encryptedBuffer = new Uint8Array(await response.arrayBuffer());
 
   const key = await importKey(keyString);
 

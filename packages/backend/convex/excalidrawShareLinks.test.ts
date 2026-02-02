@@ -9,7 +9,8 @@ import { modules } from "./test.setup";
 
 const t = convexTest(schema, modules);
 const shareLinksApi = api.excalidrawShareLinks;
-const DECRYPTION_ERROR_PATTERN = /Decryption failed|invalid key|corrupted/i;
+const DECRYPTION_ERROR_PATTERN =
+  /Decryption failed|invalid key|corrupted|Invalid character/i;
 
 function buildValidExcalidrawElements() {
   const updated = 1_725_000_000_000;
