@@ -24,6 +24,7 @@
       "dependencies": {
         "@opencode-ai/plugin": "1.1.48",
         "@opencode-ai/sdk": "1.1.44",
+        "@sketchi/shared": "workspace:*",
         "parquetjs-lite": "^0.8.7",
       },
       "devDependencies": {
@@ -83,6 +84,7 @@
         "@browserbasehq/sdk": "^2.6.0",
         "@excalidraw/excalidraw": "^0.18.0",
         "@openrouter/ai-sdk-provider": "^2.1.1",
+        "@sketchi/shared": "workspace:*",
         "@types/dagre": "^0.7.53",
         "ai": "^6.0.49",
         "convex": "catalog:",

@@ -1,6 +1,9 @@
-const EXCALIDRAW_SHARE_URL_PATTERN = /#json=([^,]+),(.+)$/;
+export {
+  type ExcalidrawShareLinkPayload,
+  parseExcalidrawShareLink,
+} from "@sketchi/shared";
+
 const EXCALIDRAW_POST_URL = "https://json.excalidraw.com/api/v2/post/";
-const EXCALIDRAW_GET_URL = "https://json.excalidraw.com/api/v2/";
 const IV_BYTE_LENGTH = 12;
 const AES_GCM_KEY_LENGTH = 128;
 
@@ -8,11 +11,6 @@ export interface ExcalidrawShareLinkResult {
   url: string;
   shareId: string;
   encryptionKey: string;
-}
-
-export interface ExcalidrawShareLinkPayload {
-  elements: unknown[];
-  appState: Record<string, unknown>;
 }
 
 export async function createExcalidrawShareLink(
@@ -62,42 +60,4 @@ export async function createExcalidrawShareLink(
     shareId: id,
     encryptionKey: jwk.k,
   };
-}
-
-export async function parseExcalidrawShareLink(
-  url: string
-): Promise<ExcalidrawShareLinkPayload> {
-  const match = url.match(EXCALIDRAW_SHARE_URL_PATTERN);
-  if (!match) {
-    throw new Error("Invalid Excalidraw share URL format");
-  }
-
-  const [, id, keyString] = match;
-
-  const response = await fetch(`${EXCALIDRAW_GET_URL}${id}`);
-  if (!response.ok) {
-    throw new Error(`Fetch failed: ${response.status}`);
-  }
-  const encrypted = await response.arrayBuffer();
-
-  const key = await crypto.subtle.importKey(
-    "jwk",
-    { kty: "oct", k: keyString, alg: "A128GCM" },
-    { name: "AES-GCM" },
-    false,
-    ["decrypt"]
-  );
-
-  const iv = new Uint8Array(encrypted.slice(0, IV_BYTE_LENGTH));
-  const ciphertext = new Uint8Array(encrypted.slice(IV_BYTE_LENGTH));
-
-  const decrypted = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv },
-    key,
-    ciphertext
-  );
-
-  return JSON.parse(
-    new TextDecoder().decode(decrypted)
-  ) as ExcalidrawShareLinkPayload;
 }

@@ -4,8 +4,9 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@opencode-ai/plugin": "1.1.47",
+    "@opencode-ai/plugin": "1.1.48",
     "@opencode-ai/sdk": "1.1.44",
+    "@sketchi/shared": "workspace:*",
     "parquetjs-lite": "^0.8.7"
   },
   "devDependencies": {
