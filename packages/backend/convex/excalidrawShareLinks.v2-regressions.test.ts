@@ -76,17 +76,11 @@ test("rejects truncated V2 chunk header", async () => {
   const truncated = new Uint8Array(6);
   new DataView(truncated.buffer).setUint32(0, 1);
 
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => new Response(truncated);
-  try {
-    await expect(
-      t.action(shareLinksApi.parseShareLinkToElements, {
-        url: buildShareUrl("fake-id", fixture.key),
-      })
-    ).rejects.toThrow("V2 parsing failed: truncated chunk header");
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  await expect(
+    t.action(shareLinksApi.parseShareLinkToElements, {
+      url: buildShareUrl(toBase64Url(truncated), fixture.key),
+    })
+  ).rejects.toThrow("V2 parsing failed: truncated chunk header");
 });
 
 test("rejects chunk size exceeding remaining buffer", async () => {

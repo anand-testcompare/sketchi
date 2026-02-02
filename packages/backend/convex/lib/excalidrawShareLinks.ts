@@ -268,7 +268,7 @@ async function importKey(keyString: string): Promise<CryptoKey> {
 }
 
 function isBase64EncodedData(str: string): boolean {
-  if (str.length < 20) {
+  if (str.length < 8) {
     return false;
   }
   try {
