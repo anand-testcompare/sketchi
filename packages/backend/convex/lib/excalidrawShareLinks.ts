@@ -1,4 +1,5 @@
 import pako from "pako";
+import { buildV2UploadBody } from "./excalidrawShareLinkV2Encoding";
 
 // NOTE(sync): This file contains a Convex-compatible copy of the share-link parsing logic.
 // Keep in sync with `packages/shared/src/excalidraw-share-links.ts`.
@@ -13,7 +14,6 @@ const MAX_DECOMPRESSED_BYTES = 20 * 1024 * 1024;
 const EXCALIDRAW_SHARE_URL_PATTERN = /#json=([^,]+),(.+)$/;
 const EXCALIDRAW_GET_URL = "https://json.excalidraw.com/api/v2/";
 const EXCALIDRAW_POST_URL = "https://json.excalidraw.com/api/v2/post/";
-const AES_GCM_KEY_LENGTH = 128;
 
 export interface ExcalidrawShareLinkPayload {
   elements: unknown[];
@@ -318,29 +318,14 @@ export async function createExcalidrawShareLink(
   elements: unknown[],
   appState: Record<string, unknown> = {}
 ): Promise<ExcalidrawShareLinkResult> {
-  const payload = JSON.stringify({ elements, appState });
-  const encodedPayload = new TextEncoder().encode(payload);
-
-  const key = await crypto.subtle.generateKey(
-    { name: "AES-GCM", length: AES_GCM_KEY_LENGTH },
-    true,
-    ["encrypt", "decrypt"]
-  );
-
-  const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH_BYTES));
-  const encrypted = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
-    key,
-    encodedPayload
-  );
-
-  const combined = new Uint8Array(iv.length + encrypted.byteLength);
-  combined.set(iv);
-  combined.set(new Uint8Array(encrypted), iv.length);
+  const { body, encryptionKey } = await buildV2UploadBody({
+    elements,
+    appState,
+  });
 
   const response = await fetch(EXCALIDRAW_POST_URL, {
     method: "POST",
-    body: combined,
+    body: new Uint8Array(body),
   });
 
   if (!response.ok) {
@@ -351,14 +336,9 @@ export async function createExcalidrawShareLink(
 
   const { id } = (await response.json()) as { id: string };
 
-  const jwk = await crypto.subtle.exportKey("jwk", key);
-  if (!jwk.k) {
-    throw new Error("Failed to export encryption key");
-  }
-
   return {
-    url: `https://excalidraw.com/#json=${id},${jwk.k}`,
+    url: `https://excalidraw.com/#json=${id},${encryptionKey}`,
     shareId: id,
-    encryptionKey: jwk.k,
+    encryptionKey,
   };
 }
