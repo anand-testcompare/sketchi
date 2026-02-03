@@ -198,7 +198,10 @@ async function getFirstRectanglePixel(page: {
 
 async function dragShape(
   page: {
-    evaluate: <T>(fn: (args: DragPayload) => T, args: DragPayload) => Promise<T>;
+    evaluate: <T>(
+      fn: (args: DragPayload) => T,
+      args: DragPayload
+    ) => Promise<T>;
   },
   shapePoint: ShapePoint,
   offsetX: number,
@@ -216,7 +219,9 @@ async function dragShape(
 
   await page.evaluate(
     ({ clientX, clientY, offsetX, offsetY }) => {
-      const canvas = document.querySelector("canvas") as HTMLCanvasElement | null;
+      const canvas = document.querySelector(
+        "canvas"
+      ) as HTMLCanvasElement | null;
       if (!canvas) {
         return;
       }
@@ -255,7 +260,6 @@ async function dragShape(
   );
   await sleep(200);
 }
-
 
 async function main() {
   const cfg = loadConfig();

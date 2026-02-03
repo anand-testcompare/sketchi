@@ -1,16 +1,20 @@
 {
+  "name": "@sketchi/e2e",
   "private": true,
   "type": "module",
   "scripts": {
     "visual-sanity": "bun run src/scenarios/unauthenticated/visual-sanity.ts",
     "icon-library-generator-happy-path": "bun run src/scenarios/unauthenticated/icon-library-generator-happy-path.ts",
-    "arrow-binding-drag": "bun run src/scenarios/unauthenticated/arrow-binding-drag.ts"
+    "arrow-binding-drag": "bun run src/scenarios/unauthenticated/arrow-binding-drag.ts",
+    "mcp-v2-share-link": "bun run src/scenarios/unauthenticated/mcp-v2-share-link.ts"
   },
   "dependencies": {
     "@browserbasehq/stagehand": "^3.0.7",
+    "@sketchi/shared": "workspace:*",
     "convex": "^1.31.6",
     "dotenv": "^17.2.3",
-    "openai": "^4.87.1"
+    "openai": "^4.87.1",
+    "pako": "^1.0.11"
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",

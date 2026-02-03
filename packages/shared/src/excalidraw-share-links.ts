@@ -1,9 +1,9 @@
-// biome-ignore lint/performance/noNamespaceImport: required for UMD module in Convex runtime
-import * as pako from "pako";
+import { Inflate } from "pako";
 
-// NOTE(sync): This file contains a Convex-compatible copy of the share-link parsing logic.
-// Keep in sync with `packages/shared/src/excalidraw-share-links.ts`.
+// NOTE(sync): Convex deploys can't import workspace packages; keep parsing logic in sync with
+// `packages/backend/convex/lib/excalidrawShareLinks.ts`.
 
+// Constants matching Excalidraw encode.ts:161-168
 const CONCAT_BUFFERS_VERSION = 1;
 const VERSION_DATAVIEW_BYTES = 4;
 const NEXT_CHUNK_SIZE_DATAVIEW_BYTES = 4;
@@ -13,18 +13,10 @@ const MAX_DECOMPRESSED_BYTES = 20 * 1024 * 1024;
 
 const EXCALIDRAW_SHARE_URL_PATTERN = /#json=([^,]+),(.+)$/;
 const EXCALIDRAW_GET_URL = "https://json.excalidraw.com/api/v2/";
-const EXCALIDRAW_POST_URL = "https://json.excalidraw.com/api/v2/post/";
-const AES_GCM_KEY_LENGTH = 128;
 
 export interface ExcalidrawShareLinkPayload {
   elements: unknown[];
   appState: Record<string, unknown>;
-}
-
-export interface ExcalidrawShareLinkResult {
-  url: string;
-  shareId: string;
-  encryptionKey: string;
 }
 
 interface FileEncodingInfo {
@@ -33,6 +25,8 @@ interface FileEncodingInfo {
   encryption: string;
 }
 
+// Buffer format: [4-byte version][4-byte len][chunk]...[4-byte len][chunk]
+// Mirrors Excalidraw encode.ts:254-291
 function splitBuffers(concatenatedBuffer: Uint8Array): Uint8Array[] {
   const buffers: Uint8Array[] = [];
   let cursor = 0;
@@ -83,7 +77,7 @@ function decompressBuffer(data: Uint8Array): Uint8Array {
   try {
     const chunks: Uint8Array[] = [];
     let total = 0;
-    const inflator = new pako.Inflate();
+    const inflator = new Inflate();
     inflator.onData = (chunk: Uint8Array) => {
       total += chunk.length;
       if (total > MAX_DECOMPRESSED_BYTES) {
@@ -212,6 +206,7 @@ async function parseV2(
   }
 }
 
+// V1 format: [12-byte IV][ciphertext]
 async function parseV1(
   encryptedBuffer: Uint8Array,
   key: CryptoKey
@@ -313,53 +308,4 @@ export async function parseExcalidrawShareLink(
   }
 
   return parseV1(encryptedBuffer, key);
-}
-
-export async function createExcalidrawShareLink(
-  elements: unknown[],
-  appState: Record<string, unknown> = {}
-): Promise<ExcalidrawShareLinkResult> {
-  const payload = JSON.stringify({ elements, appState });
-  const encodedPayload = new TextEncoder().encode(payload);
-
-  const key = await crypto.subtle.generateKey(
-    { name: "AES-GCM", length: AES_GCM_KEY_LENGTH },
-    true,
-    ["encrypt", "decrypt"]
-  );
-
-  const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH_BYTES));
-  const encrypted = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
-    key,
-    encodedPayload
-  );
-
-  const combined = new Uint8Array(iv.length + encrypted.byteLength);
-  combined.set(iv);
-  combined.set(new Uint8Array(encrypted), iv.length);
-
-  const response = await fetch(EXCALIDRAW_POST_URL, {
-    method: "POST",
-    body: combined,
-  });
-
-  if (!response.ok) {
-    throw new Error(
-      `Upload failed: ${response.status} ${await response.text()}`
-    );
-  }
-
-  const { id } = (await response.json()) as { id: string };
-
-  const jwk = await crypto.subtle.exportKey("jwk", key);
-  if (!jwk.k) {
-    throw new Error("Failed to export encryption key");
-  }
-
-  return {
-    url: `https://excalidraw.com/#json=${id},${jwk.k}`,
-    shareId: id,
-    encryptionKey: jwk.k,
-  };
 }
