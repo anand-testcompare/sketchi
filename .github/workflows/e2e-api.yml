@@ -108,6 +108,64 @@ jobs:
             --output-dir tests/api/results \
             --format xml
 
+      - name: Collect Venom log
+        if: always() && steps.doc_check.outputs.run_tests == 'true'
+        run: |
+          if [ -f venom.log ]; then
+            cp venom.log tests/api/results/venom.log
+          fi
+
+      - name: Summarize API tests
+        if: always() && steps.doc_check.outputs.run_tests == 'true'
+        run: |
+          node -e "
+          const fs = require('fs');
+          const path = require('path');
+          const resultsDir = path.join(process.cwd(), 'tests', 'api', 'results');
+          const summaryPath = process.env.GITHUB_STEP_SUMMARY;
+          const lines = [];
+          lines.push('## API Test Results');
+          if (!fs.existsSync(resultsDir)) {
+            lines.push('No results directory found.');
+            fs.appendFileSync(summaryPath, lines.join('\\n') + '\\n');
+            process.exit(0);
+          }
+          const xmlFiles = fs.readdirSync(resultsDir).filter((f) => f.endsWith('.xml'));
+          if (xmlFiles.length === 0) {
+            lines.push('No XML results found.');
+            fs.appendFileSync(summaryPath, lines.join('\\n') + '\\n');
+            process.exit(0);
+          }
+          let totalTests = 0;
+          let totalFailures = 0;
+          const testcases = [];
+          for (const file of xmlFiles) {
+            const xml = fs.readFileSync(path.join(resultsDir, file), 'utf8');
+            const testsMatch = xml.match(/tests=\\\"(\\d+)\\\"/);
+            if (testsMatch) {
+              totalTests += Number(testsMatch[1] || 0);
+            }
+            const failureCount =
+              (xml.match(/<failure\\b/g) || []).length +
+              (xml.match(/<error\\b/g) || []).length;
+            totalFailures += failureCount;
+            const caseRegex = /<testcase[^>]*name=\\\"([^\\\"]+)\\\"/g;
+            let match;
+            while ((match = caseRegex.exec(xml)) !== null) {
+              testcases.push(match[1]);
+            }
+          }
+          lines.push('Total tests: ' + totalTests);
+          lines.push('Failures: ' + totalFailures);
+          if (testcases.length > 0) {
+            lines.push('Testcases:');
+            for (const name of testcases) {
+              lines.push('- ' + name);
+            }
+          }
+          fs.appendFileSync(summaryPath, lines.join('\\n') + '\\n');
+          "
+
       - name: Upload API test artifacts
         if: always() && steps.doc_check.outputs.run_tests == 'true'
         uses: actions/upload-artifact@v4
