@@ -240,6 +240,7 @@ const parseOutputSchema = z.object({
 const modifyInputSchema = z.object({
   shareUrl: z.string().url(),
   request: z.string().min(1),
+  traceId: z.string().optional(),
   options: z
     .object({
       maxSteps: z.number().optional(),
@@ -260,6 +261,7 @@ JSON_SCHEMA_REGISTRY.add(modifyInputSchema, {
 
 const parseInputSchema = z.object({
   shareUrl: z.string().url(),
+  traceId: z.string().optional(),
 });
 
 JSON_SCHEMA_REGISTRY.add(parseInputSchema, {
@@ -269,6 +271,7 @@ JSON_SCHEMA_REGISTRY.add(parseInputSchema, {
 const shareInputSchema = z.object({
   elements: z.array(z.any()),
   appState: z.record(z.string(), z.any()).optional(),
+  traceId: z.string().optional(),
 });
 
 JSON_SCHEMA_REGISTRY.add(shareInputSchema, {
@@ -302,9 +305,12 @@ export const appRouter = {
     .input(modifyInputSchema)
     .output(modifyOutputSchema)
     .handler(async ({ input, context }) => {
-      const traceId = context.traceId;
+      const traceId = input.traceId ?? context.traceId;
       try {
-        return await context.convex.action(api.diagrams.modifyDiagram, input);
+        return await context.convex.action(api.diagrams.modifyDiagram, {
+          ...input,
+          traceId,
+        });
       } catch (error) {
         throwInternalError({
           traceId,
@@ -319,9 +325,12 @@ export const appRouter = {
     .input(parseInputSchema)
     .output(parseOutputSchema)
     .handler(async ({ input, context }) => {
-      const traceId = context.traceId;
+      const traceId = input.traceId ?? context.traceId;
       try {
-        return await context.convex.action(api.diagrams.parseDiagram, input);
+        return await context.convex.action(api.diagrams.parseDiagram, {
+          ...input,
+          traceId,
+        });
       } catch (error) {
         throwInternalError({
           traceId,
@@ -336,9 +345,12 @@ export const appRouter = {
     .input(shareInputSchema)
     .output(shareLinkSchema)
     .handler(async ({ input, context }) => {
-      const traceId = context.traceId;
+      const traceId = input.traceId ?? context.traceId;
       try {
-        return await context.convex.action(api.diagrams.shareDiagram, input);
+        return await context.convex.action(api.diagrams.shareDiagram, {
+          ...input,
+          traceId,
+        });
       } catch (error) {
         throwInternalError({
           traceId,

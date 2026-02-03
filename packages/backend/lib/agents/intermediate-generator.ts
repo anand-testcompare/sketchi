@@ -397,7 +397,7 @@ export async function generateIntermediate(
 
     if (!result.output) {
       throw new Error(
-        `Validation failed after ${result.steps.length} attempts: ${JSON.stringify(
+        `No output generated after ${result.steps.length} attempts: ${JSON.stringify(
           result.steps.map((s) => s.toolCalls)
         )}`
       );
