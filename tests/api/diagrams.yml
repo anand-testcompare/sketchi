@@ -3,6 +3,7 @@ vars:
   target_url: "http://localhost:3001"
   bypass_secret: "local-dev"
   encoded_share_prefix: "https%3A%2F%2Fexcalidraw.com%2F%23json%3D"
+  encoded_v2_share_url: "https%3A%2F%2Fexcalidraw.com%2F%23json%3Du124S5epdCKEF07WlyRT7%2C_gQTcjl4lABzz__Fcytufg"
   test_intermediate:
     nodes:
       - id: "node-1"
@@ -182,3 +183,16 @@ testcases:
           - result.statuscode ShouldEqual 200
           - result.bodyjson.url ShouldContainSubstring "https://excalidraw.com/#json="
           - result.bodyjson.shareId ShouldNotBeEmpty
+
+  - name: parse_v2_share_link_regression
+    steps:
+      - type: http
+        method: GET
+        url: "{{.target_url}}/api/diagrams/parse?shareUrl={{.encoded_v2_share_url}}"
+        headers:
+          x-vercel-protection-bypass: "{{.bypass_secret}}"
+        assertions:
+          - result.statuscode ShouldEqual 200
+          - result.bodyjson.stats.nodeCount ShouldEqual 3
+          - result.bodyjson.stats.edgeCount ShouldEqual 0
+          - result.bodyjson.stats.elementCount ShouldEqual 6
