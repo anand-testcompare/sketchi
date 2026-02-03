@@ -124,8 +124,7 @@ export async function generateIntermediate(
     },
   });
 
-  const modelId =
-    process.env.MODEL_NAME?.trim() || "google/gemini-3-flash-preview";
+  const modelId = process.env.MODEL_NAME?.trim() || "google/gemini-2.5-flash";
 
   const agent = new ToolLoopAgent({
     model: createOpenRouterChatModel({
