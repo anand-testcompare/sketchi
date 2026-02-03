@@ -111,6 +111,7 @@ jobs:
       - name: Collect Venom log
         if: always() && steps.doc_check.outputs.run_tests == 'true'
         run: |
+          mkdir -p tests/api/results
           if [ -f venom.log ]; then
             cp venom.log tests/api/results/venom.log
           fi
