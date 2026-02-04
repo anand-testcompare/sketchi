@@ -30,16 +30,24 @@ export async function POST(request: Request) {
     createTraceId();
   const level = parsed.data.level ?? "info";
 
-  const { level: _level, traceId: _traceId, ...extra } = parsed.data;
+  const {
+    level: _level,
+    traceId: _traceId,
+    op: _op,
+    status: _status,
+    component: _component,
+    requestLength: _requestLength,
+    ...extra
+  } = parsed.data;
 
   await logApiEvent(
     {
+      ...extra,
       traceId,
       op: parsed.data.op,
       status: "success",
       component: "telemetry-proxy",
       requestLength: JSON.stringify(payload).length,
-      ...extra,
     },
     { level }
   );

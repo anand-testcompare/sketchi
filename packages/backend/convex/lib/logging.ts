@@ -74,7 +74,7 @@ export function createLoggedAction<Args extends object, Result>(
           actionName: name,
           op: "action.start",
           stage: "convex.action",
-          ...loggedArgs,
+          args: loggedArgs,
         });
 
         try {
@@ -87,7 +87,7 @@ export function createLoggedAction<Args extends object, Result>(
             stage: "convex.action",
             status: "success",
             durationMs: Date.now() - start,
-            ...(loggedResult ?? {}),
+            result: loggedResult,
           });
           return result;
         } catch (error) {

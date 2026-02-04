@@ -150,9 +150,6 @@ async function sendToTelemetryProxy(
 ): Promise<void> {
   const telemetryUrl =
     process.env.SKETCHI_TELEMETRY_URL ?? `${appUrl}/api/telemetry`;
-  if (!telemetryUrl) {
-    return;
-  }
   await fetch(telemetryUrl, {
     method: "POST",
     headers: {
@@ -189,12 +186,25 @@ export async function logEvent(
     return;
   }
 
-  if (SENTRY_CONVEX_MODE === "proxy") {
-    await sendToTelemetryProxy(normalized, level);
-    return;
-  }
+  try {
+    if (SENTRY_CONVEX_MODE === "proxy") {
+      await sendToTelemetryProxy(normalized, level);
+      return;
+    }
 
-  sendToSentry(normalized, level);
+    sendToSentry(normalized, level);
+  } catch (error) {
+    console.warn(
+      JSON.stringify({
+        service: "convex",
+        component: "observability",
+        op: "logEvent.error",
+        traceId: normalized.traceId,
+        errorName: error instanceof Error ? error.name : undefined,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      })
+    );
+  }
 }
 
 export async function startSentrySpan<T>(

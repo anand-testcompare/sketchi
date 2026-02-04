@@ -25,7 +25,7 @@
 
 Enable direct Convex → Sentry logging:
 
-```
+```bash
 SENTRY_CONVEX_ENABLED=1
 SENTRY_CONVEX_MODE=direct
 SENTRY_DSN=...
@@ -34,7 +34,7 @@ SENTRY_LOG_SAMPLE_RATE=0.1
 
 Fallback proxy (Convex → Next → Sentry):
 
-```
+```bash
 SENTRY_CONVEX_ENABLED=1
 SENTRY_CONVEX_MODE=proxy
 SKETCHI_TELEMETRY_URL=https://sketchi.app/api/telemetry
@@ -44,7 +44,7 @@ SKETCHI_TELEMETRY_URL=https://sketchi.app/api/telemetry
 
 Run the Convex action:
 
-```
+```bash
 convex.sentrySmokeTest
 ```
 
