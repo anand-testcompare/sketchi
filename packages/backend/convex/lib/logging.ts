@@ -3,7 +3,7 @@
 import type { PropertyValidators, Validator } from "convex/values";
 import type { ActionCtx } from "../_generated/server";
 import { action } from "../_generated/server";
-import { logEvent } from "./observability";
+import { logEventSafely } from "./observability";
 import { createTraceId } from "./trace";
 
 export interface LoggingOptions<Args, Result> {
@@ -69,7 +69,7 @@ export function createLoggedAction<Args extends object, Result>(
         const safeArgs = (args ?? {}) as Args;
         const loggedArgs = formatArgsForLog(safeArgs, formatArgs);
         const traceId = resolveTraceId<Args, Result>(safeArgs, getTraceId);
-        await logEvent({
+        logEventSafely({
           traceId,
           actionName: name,
           op: "action.start",
@@ -80,7 +80,7 @@ export function createLoggedAction<Args extends object, Result>(
         try {
           const result = (await handler(ctx, args as Args)) as Result;
           const loggedResult = formatResultForLog(result, formatResult);
-          await logEvent({
+          logEventSafely({
             traceId,
             actionName: name,
             op: "action.complete",
@@ -93,7 +93,7 @@ export function createLoggedAction<Args extends object, Result>(
         } catch (error) {
           const message =
             error instanceof Error ? error.message : String(error);
-          await logEvent(
+          logEventSafely(
             {
               traceId,
               actionName: name,

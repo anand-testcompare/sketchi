@@ -1,6 +1,6 @@
 import { Output, stepCountIs, ToolLoopAgent, tool } from "ai";
 import { z } from "zod";
-import { hashString, logEvent } from "../../convex/lib/observability";
+import { hashString, logEventSafely } from "../../convex/lib/observability";
 import { createOpenRouterChatModel } from "../ai/openrouter";
 import type {
   IntermediateEdge,
@@ -141,14 +141,6 @@ function wrapIntermediateGenerationFailure(params: {
   );
   wrapped.cause = params.cause;
   return wrapped;
-}
-
-type LogEventArgs = Parameters<typeof logEvent>;
-
-function logEventSafely(event: LogEventArgs[0], options?: LogEventArgs[1]) {
-  logEvent(event, options).catch(() => {
-    // Ignore logging failures to avoid breaking the main flow.
-  });
 }
 
 function createValidateIntermediateTool(profile: PromptAgentProfile) {
@@ -328,7 +320,7 @@ async function runWithRetryAndOptionalFallback<T>(params: {
     }
 
     try {
-      await logEvent({
+      logEventSafely({
         traceId,
         actionName: "generateIntermediate",
         component: "ai",
@@ -353,7 +345,7 @@ async function runWithRetryAndOptionalFallback<T>(params: {
         modelId,
         error,
       });
-      await logEvent(
+      logEventSafely(
         {
           traceId,
           actionName: "generateIntermediate",
@@ -468,7 +460,7 @@ export async function generateIntermediate(
   const start = Date.now();
 
   const runAttempt = async (modelId: string): Promise<AgentGenerateResult> => {
-    await logEvent({
+    logEventSafely({
       traceId,
       actionName: "generateIntermediate",
       component: "ai",
@@ -516,7 +508,7 @@ export async function generateIntermediate(
         runAttempt,
       }));
   } catch (error) {
-    await logEvent(
+    logEventSafely(
       {
         traceId,
         actionName: "generateIntermediate",
@@ -540,7 +532,7 @@ export async function generateIntermediate(
     modelId: usedModelId,
     responseId: result.response.id,
   });
-  await logEvent({
+  logEventSafely({
     traceId,
     actionName: "generateIntermediate",
     component: "ai",

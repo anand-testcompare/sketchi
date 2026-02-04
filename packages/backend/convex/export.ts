@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import type { Diagram } from "../lib/diagram-structure";
 import { renderDiagramToPngRemote } from "../lib/render-png";
 import { action } from "./_generated/server";
-import { logEvent } from "./lib/observability";
+import { logEventSafely } from "./lib/observability";
 
 export const exportDiagramPng = action({
   args: {
@@ -19,7 +19,7 @@ export const exportDiagramPng = action({
   },
   handler: async (_ctx, args) => {
     const traceId = crypto.randomUUID();
-    await logEvent({
+    logEventSafely({
       traceId,
       actionName: "exportDiagramPng",
       op: "pipeline.start",
@@ -35,7 +35,7 @@ export const exportDiagramPng = action({
         args.diagram as Diagram,
         args.options ?? {}
       );
-      await logEvent({
+      logEventSafely({
         traceId,
         actionName: "exportDiagramPng",
         op: "pipeline.complete",
@@ -50,7 +50,7 @@ export const exportDiagramPng = action({
         durationMs: result.durationMs,
       };
     } catch (error) {
-      await logEvent(
+      logEventSafely(
         {
           traceId,
           actionName: "exportDiagramPng",

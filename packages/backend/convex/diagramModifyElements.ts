@@ -10,7 +10,7 @@ import {
   validateElements,
 } from "../lib/diagram-modification";
 import { action } from "./_generated/server";
-import { hashString, logEvent } from "./lib/observability";
+import { hashString, logEventSafely } from "./lib/observability";
 
 const DEFAULT_MAX_STEPS = 5;
 const MAX_TIMEOUT_MS = 240_000;
@@ -105,14 +105,6 @@ interface ModificationTracking {
   stepCount: number;
   tokenCount: number;
   lastStepAt: number;
-}
-
-type LogEventArgs = Parameters<typeof logEvent>;
-
-function logEventSafely(event: LogEventArgs[0], options?: LogEventArgs[1]) {
-  logEvent(event, options).catch(() => {
-    // Ignore logging failures to avoid breaking the main flow.
-  });
 }
 
 function summarizeElements(elements: Record<string, unknown>[]) {
@@ -596,7 +588,7 @@ async function runAgentAttempts(params: {
     }
 
     try {
-      await logEvent({
+      logEventSafely({
         traceId: params.traceId,
         actionName: "diagramModifyElements",
         component: "ai",
@@ -627,7 +619,7 @@ async function runAgentAttempts(params: {
       };
     } catch (error) {
       lastError = error;
-      await logEvent(
+      logEventSafely(
         {
           traceId: params.traceId,
           actionName: "diagramModifyElements",
@@ -650,16 +642,16 @@ async function runAgentAttempts(params: {
   return { lastError };
 }
 
-async function logExplicitResult(
+function logExplicitResult(
   traceId: string,
   explicitResult: DiagramModifyResult | null
-): Promise<DiagramModifyResult | null> {
+): DiagramModifyResult | null {
   if (!explicitResult) {
     return null;
   }
 
   const level = explicitResult.status === "success" ? "info" : "error";
-  await logEvent(
+  logEventSafely(
     {
       traceId,
       actionName: "diagramModifyElements",
@@ -678,16 +670,16 @@ async function logExplicitResult(
   return explicitResult;
 }
 
-async function logOutcomeResult(
+function logOutcomeResult(
   traceId: string,
   outcome?: DiagramModifyResult
-): Promise<DiagramModifyResult | null> {
+): DiagramModifyResult | null {
   if (!outcome) {
     return null;
   }
 
   const level = outcome.status === "success" ? "info" : "error";
-  await logEvent(
+  logEventSafely(
     {
       traceId,
       actionName: "diagramModifyElements",
@@ -706,13 +698,13 @@ async function logOutcomeResult(
   return outcome;
 }
 
-async function logInvalidElementsFailure(
+function logInvalidElementsFailure(
   traceId: string,
   issues: DiagramIssue[],
   startedAt: number
-): Promise<DiagramModifyResult> {
+): DiagramModifyResult {
   const stats = buildStatsResult(startedAt, traceId, 0, 0);
-  await logEvent(
+  logEventSafely(
     {
       traceId,
       actionName: "diagramModifyElements",
@@ -727,19 +719,19 @@ async function logInvalidElementsFailure(
   return buildFailureResult("invalid-elements", issues, stats);
 }
 
-async function logFallbackSuccess(params: {
+function logFallbackSuccess(params: {
   traceId: string;
   startedAt: number;
   tracking: ModificationTracking;
   appState?: Record<string, unknown>;
-}): Promise<DiagramModifyResult> {
+}): DiagramModifyResult {
   const stats = buildStatsResult(
     params.startedAt,
     params.traceId,
     params.tracking.stepCount,
     params.tracking.tokenCount
   );
-  await logEvent({
+  logEventSafely({
     traceId: params.traceId,
     actionName: "diagramModifyElements",
     op: "pipeline.complete",
@@ -777,19 +769,19 @@ function buildErrorIssues(
   ];
 }
 
-async function logTerminalFailure(params: {
+function logTerminalFailure(params: {
   traceId: string;
   startedAt: number;
   tracking: ModificationTracking;
   issues: DiagramIssue[];
-}): Promise<DiagramModifyResult> {
+}): DiagramModifyResult {
   const stats = buildStatsResult(
     params.startedAt,
     params.traceId,
     params.tracking.stepCount,
     params.tracking.tokenCount
   );
-  await logEvent(
+  logEventSafely(
     {
       traceId: params.traceId,
       actionName: "diagramModifyElements",
@@ -826,7 +818,7 @@ export async function modifyElementsWithAgent(
   const requestLength = args.request.length;
   const requestHash = hashString(args.request);
 
-  await logEvent({
+  logEventSafely({
     traceId,
     actionName: "diagramModifyElements",
     op: "pipeline.start",

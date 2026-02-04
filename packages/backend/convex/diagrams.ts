@@ -15,7 +15,7 @@ import {
   parseExcalidrawShareLinkWithMetadata,
 } from "./lib/excalidrawShareLinks";
 import { createLoggedAction } from "./lib/logging";
-import { hashString, logEvent } from "./lib/observability";
+import { hashString, logEventSafely } from "./lib/observability";
 
 interface GenerateStats {
   traceId: string;
@@ -174,7 +174,7 @@ export const generateDiagram = generateDiagramAction({
     const promptLength = args.prompt?.length ?? 0;
     const promptHash = hashString(args.prompt ?? undefined);
 
-    await logEvent({
+    logEventSafely({
       traceId,
       actionName: "diagrams.generateDiagram",
       op: "pipeline.start",
@@ -202,7 +202,7 @@ export const generateDiagram = generateDiagramAction({
 
     const parsed = IntermediateFormatSchema.safeParse(intermediate);
     if (!parsed.success) {
-      await logEvent(
+      logEventSafely(
         {
           traceId,
           actionName: "diagrams.generateDiagram",
@@ -226,7 +226,7 @@ export const generateDiagram = generateDiagramAction({
       parsed.data.edges
     );
     if (edgeErrors.length > 0) {
-      await logEvent(
+      logEventSafely(
         {
           traceId,
           actionName: "diagrams.generateDiagram",
@@ -242,7 +242,7 @@ export const generateDiagram = generateDiagramAction({
     }
 
     const rendered = renderIntermediateDiagram(parsed.data);
-    await logEvent({
+    logEventSafely({
       traceId,
       actionName: "diagrams.generateDiagram",
       op: "pipeline.render",
@@ -261,7 +261,7 @@ export const generateDiagram = generateDiagramAction({
     };
     try {
       shareLink = await createExcalidrawShareLink(rendered.elements, {});
-      await logEvent({
+      logEventSafely({
         traceId,
         actionName: "diagrams.generateDiagram",
         op: "pipeline.share",
@@ -271,7 +271,7 @@ export const generateDiagram = generateDiagramAction({
         elementCount: rendered.elements.length,
       });
     } catch (error) {
-      await logEvent(
+      logEventSafely(
         {
           traceId,
           actionName: "diagrams.generateDiagram",
@@ -285,7 +285,7 @@ export const generateDiagram = generateDiagramAction({
       );
       throw error;
     }
-    await logEvent({
+    logEventSafely({
       traceId,
       actionName: "diagrams.generateDiagram",
       op: "pipeline.complete",
@@ -338,7 +338,7 @@ export const modifyDiagram = modifyDiagramAction({
     const requestLength = args.request.length;
     const requestHash = hashString(args.request);
 
-    await logEvent({
+    logEventSafely({
       traceId,
       actionName: "diagrams.modifyDiagram",
       op: "pipeline.start",
@@ -353,7 +353,7 @@ export const modifyDiagram = modifyDiagramAction({
     >;
     try {
       parsed = await parseExcalidrawShareLinkWithMetadata(args.shareUrl);
-      await logEvent({
+      logEventSafely({
         traceId,
         actionName: "diagrams.modifyDiagram",
         op: "pipeline.parseShareLink",
@@ -363,7 +363,7 @@ export const modifyDiagram = modifyDiagramAction({
         elementCount: parsed.payload.elements.length,
       });
     } catch (error) {
-      await logEvent(
+      logEventSafely(
         {
           traceId,
           actionName: "diagrams.modifyDiagram",
@@ -390,7 +390,7 @@ export const modifyDiagram = modifyDiagramAction({
     );
 
     if (modified.status !== "success") {
-      await logEvent(
+      logEventSafely(
         {
           traceId,
           actionName: "diagrams.modifyDiagram",
@@ -417,7 +417,7 @@ export const modifyDiagram = modifyDiagramAction({
         modified.elements ?? [],
         modified.appState ?? {}
       );
-      await logEvent({
+      logEventSafely({
         traceId,
         actionName: "diagrams.modifyDiagram",
         op: "pipeline.share",
@@ -427,7 +427,7 @@ export const modifyDiagram = modifyDiagramAction({
         elementCount: modified.elements?.length ?? 0,
       });
     } catch (error) {
-      await logEvent(
+      logEventSafely(
         {
           traceId,
           actionName: "diagrams.modifyDiagram",
@@ -441,7 +441,7 @@ export const modifyDiagram = modifyDiagramAction({
       );
       throw error;
     }
-    await logEvent({
+    logEventSafely({
       traceId,
       actionName: "diagrams.modifyDiagram",
       op: "pipeline.complete",
@@ -466,7 +466,7 @@ export const parseDiagram = parseDiagramAction({
   },
   handler: async (_ctx, args) => {
     const traceId = args.traceId ?? crypto.randomUUID();
-    await logEvent({
+    logEventSafely({
       traceId,
       actionName: "diagrams.parseDiagram",
       op: "pipeline.start",
@@ -479,7 +479,7 @@ export const parseDiagram = parseDiagramAction({
     >;
     try {
       parsed = await parseExcalidrawShareLinkWithMetadata(args.shareUrl);
-      await logEvent({
+      logEventSafely({
         traceId,
         actionName: "diagrams.parseDiagram",
         op: "pipeline.parseShareLink",
@@ -489,7 +489,7 @@ export const parseDiagram = parseDiagramAction({
         elementCount: parsed.payload.elements.length,
       });
     } catch (error) {
-      await logEvent(
+      logEventSafely(
         {
           traceId,
           actionName: "diagrams.parseDiagram",
@@ -506,7 +506,7 @@ export const parseDiagram = parseDiagramAction({
     }
 
     const simplified = simplifyDiagramElements(parsed.payload.elements);
-    await logEvent({
+    logEventSafely({
       traceId,
       actionName: "diagrams.parseDiagram",
       op: "pipeline.complete",
@@ -537,7 +537,7 @@ export const shareDiagram = shareDiagramAction({
     const elementCount = Array.isArray(args.elements)
       ? args.elements.length
       : 0;
-    await logEvent({
+    logEventSafely({
       traceId,
       actionName: "diagrams.shareDiagram",
       op: "pipeline.start",
@@ -551,7 +551,7 @@ export const shareDiagram = shareDiagramAction({
         args.elements,
         (args.appState as Record<string, unknown> | undefined) ?? {}
       );
-      await logEvent({
+      logEventSafely({
         traceId,
         actionName: "diagrams.shareDiagram",
         op: "pipeline.share",
@@ -562,7 +562,7 @@ export const shareDiagram = shareDiagramAction({
       });
       return shareLink;
     } catch (error) {
-      await logEvent(
+      logEventSafely(
         {
           traceId,
           actionName: "diagrams.shareDiagram",

@@ -8,7 +8,7 @@ import {
   detectShareUrlType,
   parseExcalidrawShareLinkWithMetadata,
 } from "./lib/excalidrawShareLinks";
-import { hashString, logEvent } from "./lib/observability";
+import { hashString, logEventSafely } from "./lib/observability";
 
 type OutputMode = "elements" | "shareLink" | "both";
 
@@ -36,7 +36,7 @@ export const diagramModifyFromShareLink = action({
     const traceId = crypto.randomUUID();
     const outputMode = normalizeOutputMode(args.output);
 
-    await logEvent({
+    logEventSafely({
       traceId,
       actionName: "diagramModifyFromShareLink",
       op: "pipeline.start",
@@ -52,7 +52,7 @@ export const diagramModifyFromShareLink = action({
     >;
     try {
       parsed = await parseExcalidrawShareLinkWithMetadata(args.url);
-      await logEvent({
+      logEventSafely({
         traceId,
         actionName: "diagramModifyFromShareLink",
         op: "pipeline.parseShareLink",
@@ -62,7 +62,7 @@ export const diagramModifyFromShareLink = action({
         elementCount: parsed.payload.elements.length,
       });
     } catch (error) {
-      await logEvent(
+      logEventSafely(
         {
           traceId,
           actionName: "diagramModifyFromShareLink",
@@ -89,7 +89,7 @@ export const diagramModifyFromShareLink = action({
     );
 
     if (modified.status !== "success") {
-      await logEvent(
+      logEventSafely(
         {
           traceId,
           actionName: "diagramModifyFromShareLink",
@@ -107,7 +107,7 @@ export const diagramModifyFromShareLink = action({
     }
 
     if (outputMode === "elements") {
-      await logEvent({
+      logEventSafely({
         traceId,
         actionName: "diagramModifyFromShareLink",
         op: "pipeline.complete",
@@ -130,7 +130,7 @@ export const diagramModifyFromShareLink = action({
         modified.elements ?? [],
         modified.appState ?? {}
       );
-      await logEvent({
+      logEventSafely({
         traceId,
         actionName: "diagramModifyFromShareLink",
         op: "pipeline.share",
@@ -140,7 +140,7 @@ export const diagramModifyFromShareLink = action({
         elementCount: modified.elements?.length ?? 0,
       });
     } catch (error) {
-      await logEvent(
+      logEventSafely(
         {
           traceId,
           actionName: "diagramModifyFromShareLink",
@@ -156,7 +156,7 @@ export const diagramModifyFromShareLink = action({
     }
 
     if (outputMode === "shareLink") {
-      await logEvent({
+      logEventSafely({
         traceId,
         actionName: "diagramModifyFromShareLink",
         op: "pipeline.complete",
@@ -174,7 +174,7 @@ export const diagramModifyFromShareLink = action({
       };
     }
 
-    await logEvent({
+    logEventSafely({
       traceId,
       actionName: "diagramModifyFromShareLink",
       op: "pipeline.complete",
