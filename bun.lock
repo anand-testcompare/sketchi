@@ -86,7 +86,6 @@
         "@excalidraw/excalidraw": "^0.18.0",
         "@openrouter/ai-sdk-provider": "^2.1.1",
         "@sentry/node": "^10.37.0",
-        "@sketchi/shared": "workspace:*",
         "@types/dagre": "^0.7.53",
         "ai": "^6.0.49",
         "convex": "catalog:",

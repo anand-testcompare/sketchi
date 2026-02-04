@@ -1,8 +1,10 @@
-import { createTraceId } from "@sketchi/shared";
+"use node";
+
 import type { PropertyValidators, Validator } from "convex/values";
 import type { ActionCtx } from "../_generated/server";
 import { action } from "../_generated/server";
 import { logEvent } from "./observability";
+import { createTraceId } from "./trace";
 
 export interface LoggingOptions<Args, Result> {
   formatArgs?: (args: Args) => Record<string, unknown>;
@@ -16,9 +18,9 @@ interface ActionDefinition<Args extends object, Result> {
   handler: (ctx: ActionCtx, args: Args) => Promise<Result> | Result;
 }
 
-function resolveTraceId<Args extends object>(
+function resolveTraceId<Args extends object, Result>(
   args: Args,
-  getTraceId?: (args: Args, result?: unknown) => string | undefined
+  getTraceId?: (args: Args, result?: Result) => string | undefined
 ): string {
   const fromCallback = getTraceId?.(args);
   if (fromCallback) {
@@ -66,7 +68,7 @@ export function createLoggedAction<Args extends object, Result>(
         const start = Date.now();
         const safeArgs = (args ?? {}) as Args;
         const loggedArgs = formatArgsForLog(safeArgs, formatArgs);
-        const traceId = resolveTraceId(safeArgs, getTraceId);
+        const traceId = resolveTraceId<Args, Result>(safeArgs, getTraceId);
         await logEvent({
           traceId,
           actionName: name,

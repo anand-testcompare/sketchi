@@ -1,3 +1,5 @@
+"use node";
+
 import { v } from "convex/values";
 import { generateIntermediate } from "../lib/agents";
 import { createLoggedAction } from "./lib/logging";

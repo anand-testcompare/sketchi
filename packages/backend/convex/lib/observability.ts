@@ -1,3 +1,5 @@
+"use node";
+
 import { createHash } from "node:crypto";
 import {
   captureMessage,
@@ -6,9 +8,9 @@ import {
   startSpan,
   withScope,
 } from "@sentry/node";
-import { createTraceId } from "@sketchi/shared";
 import { appUrl, envLabel } from "../../lib/app-url";
 import type { ShareUrlType } from "./excalidrawShareLinks";
+import { createTraceId } from "./trace";
 
 export type LogLevel = "info" | "warning" | "error";
 
@@ -52,6 +54,9 @@ export interface LogEvent extends Record<string, unknown> {
   release?: string | null;
   timestamp?: string;
 }
+
+type SpanAttributeValue = string | number | boolean;
+type SpanAttributes = Record<string, SpanAttributeValue | undefined>;
 
 const SENTRY_CONVEX_ENABLED = process.env.SENTRY_CONVEX_ENABLED === "1";
 const SENTRY_CONVEX_MODE =
@@ -193,7 +198,7 @@ export async function logEvent(
 }
 
 export async function startSentrySpan<T>(
-  params: { name: string; op: string; attributes?: Record<string, unknown> },
+  params: { name: string; op: string; attributes?: SpanAttributes },
   fn: () => Promise<T>
 ): Promise<T> {
   initSentry();

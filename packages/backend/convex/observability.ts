@@ -1,9 +1,9 @@
 "use node";
 
-import { createTraceId } from "@sketchi/shared";
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { flushSentry, logEvent, startSentrySpan } from "./lib/observability";
+import { createTraceId } from "./lib/trace";
 
 export const sentrySmokeTest = action({
   args: {

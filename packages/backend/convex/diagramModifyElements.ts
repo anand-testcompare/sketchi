@@ -1,3 +1,5 @@
+"use node";
+
 import { Output, stepCountIs, ToolLoopAgent, tool } from "ai";
 import { v } from "convex/values";
 import { createOpenRouterChatModel } from "../lib/ai/openrouter";
