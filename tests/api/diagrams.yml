@@ -85,7 +85,7 @@ testcases:
             from: result.bodyjson.shareLink.encryptionKey
         assertions:
           - result.statuscode ShouldEqual 200
-          - result.headers ShouldContainKey x-trace-id
+          - result.headers.X-Trace-Id ShouldEqual "{{.trace_id_generate}}"
           - result.bodyjson.status ShouldEqual "success"
           - result.bodyjson.shareLink.url ShouldContainSubstring "https://excalidraw.com/#json="
           - result.bodyjson.stats.traceId ShouldEqual "{{.trace_id_generate}}"
@@ -112,7 +112,7 @@ testcases:
           x-trace-id: "{{.trace_id_parse}}"
         assertions:
           - result.statuscode ShouldEqual 200
-          - result.headers ShouldContainKey x-trace-id
+          - result.headers.X-Trace-Id ShouldEqual "{{.trace_id_parse}}"
           - result.bodyjson.stats.nodeCount ShouldEqual 2
           - result.bodyjson.stats.edgeCount ShouldEqual 1
           - result.bodyjson.stats.traceId ShouldEqual "{{.trace_id_parse}}"
@@ -144,7 +144,7 @@ testcases:
             from: result.bodyjson.shareLink.url
         assertions:
           - result.statuscode ShouldEqual 200
-          - result.headers ShouldContainKey x-trace-id
+          - result.headers.X-Trace-Id ShouldEqual "{{.trace_id_modify}}"
           - result.bodyjson.status ShouldEqual "success"
 
       - type: http
@@ -165,7 +165,7 @@ testcases:
             from: result.bodyjson.shareLink.shareId
         assertions:
           - result.statuscode ShouldEqual 200
-          - result.headers ShouldContainKey x-trace-id
+          - result.headers.X-Trace-Id ShouldEqual "{{.trace_id_modify}}"
           - result.bodyjson.status ShouldEqual "success"
           - result.bodyjson.shareLink.url ShouldContainSubstring "https://excalidraw.com/#json="
           - result.bodyjson.stats.traceId ShouldEqual "{{.trace_id_modify}}"
@@ -232,7 +232,7 @@ testcases:
             from: result.bodyjson.shareId
         assertions:
           - result.statuscode ShouldEqual 200
-          - result.headers ShouldContainKey x-trace-id
+          - result.headers.X-Trace-Id ShouldEqual "{{.trace_id_share}}"
           - result.bodyjson.url ShouldContainSubstring "https://excalidraw.com/#json="
           - result.bodyjson.shareId ShouldNotBeEmpty
 
@@ -272,5 +272,5 @@ testcases:
           x-trace-id: "{{.trace_id_error}}"
         assertions:
           - result.statuscode ShouldBeGreaterThan 399
-          - result.headers ShouldContainKey x-trace-id
+          - result.headers.X-Trace-Id ShouldEqual "{{.trace_id_error}}"
           - result.bodyjson.data.traceId ShouldEqual "{{.trace_id_error}}"
