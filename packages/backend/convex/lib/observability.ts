@@ -91,6 +91,38 @@ function clampMessage(message?: string): string | undefined {
   return `${message.slice(0, MAX_MESSAGE_LENGTH)}…`;
 }
 
+function formatSentryMessage(event: LogEvent): string {
+  const parts: string[] = [];
+
+  const service = event.service ?? "convex";
+  const component = event.component;
+
+  parts.push(service);
+  if (component) {
+    parts.push(component);
+  }
+
+  parts.push(event.op);
+
+  if (event.stage) {
+    parts.push(`stage=${event.stage}`);
+  }
+  if (event.actionName) {
+    parts.push(`action=${event.actionName}`);
+  }
+  if (event.status) {
+    parts.push(`status=${event.status}`);
+  }
+  if (typeof event.durationMs === "number") {
+    parts.push(`durMs=${Math.round(event.durationMs)}`);
+  }
+  if (event.modelId) {
+    parts.push(`model=${event.modelId}`);
+  }
+
+  return clampMessage(parts.join(" ")) ?? event.op;
+}
+
 export function hashString(value?: string | null): string | undefined {
   if (!value) {
     return undefined;
@@ -175,8 +207,24 @@ function sendToSentry(event: LogEvent, level: LogLevel): void {
   withScope((scope) => {
     scope.setLevel(level);
     scope.setTag("traceId", event.traceId);
+    if (event.service) {
+      scope.setTag("service", event.service);
+    }
+    if (event.component) {
+      scope.setTag("component", event.component);
+    }
+    scope.setTag("op", event.op);
+    if (event.stage) {
+      scope.setTag("stage", event.stage);
+    }
+    if (event.actionName) {
+      scope.setTag("action", event.actionName);
+    }
+    if (event.status) {
+      scope.setTag("status", event.status);
+    }
     scope.setContext("telemetry", event);
-    captureMessage(event.op);
+    captureMessage(formatSentryMessage(event));
   });
 }
 

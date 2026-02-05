@@ -33,7 +33,11 @@ gh issue edit N -b "body"        # update issue body
 | **stagehand** | E2E browser flows | `tests/e2e/src/scenarios/*.ts` |
 | **stagehand+visual** | Visual correctness (LLM grading) | `tests/e2e/src/scenarios/*.ts` |
 | **venom** | Public API contracts | `tests/api/*.ts` (none currently) |
+| **manual** | Verification via checklist/logs | `issue comment` |
 | **no test** | Doc-only changes | MUST justify |
+
+## Verification Strategy
+If adding a test to CI provides low value, define a manual testing checklist instead. This checklist should capture functional intent and behavior rather than just code coverage. Results (including log analysis or LLM-verified outputs) should be added to the issue comment.
 
 ## Output Template
 
@@ -63,12 +67,12 @@ gh issue edit N -b "body"        # update issue body
   - Given: [precondition]
   - When: [action]
   - Then: [outcome]
-  - **Test**: convex | stagehand | stagehand+visual | venom | no test (reason)
+  - **Test**: convex | stagehand | stagehand+visual | venom | manual (checklist) | no test (reason)
 
 ## Test Artifacts
-- [ ] Results in `test-results/`
-- [ ] `test-results/summary.md` has per-scenario details
-- [ ] Screenshots in artifact ZIP
+- [ ] Results in `test-results/` or issue comment
+- [ ] `test-results/summary.md` (if applicable)
+- [ ] Screenshots or log analysis in issue/artifact
 - [ ] Preview deploy clean
 - [ ] GitHub Actions pass
 
