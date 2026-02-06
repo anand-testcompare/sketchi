@@ -16,6 +16,7 @@ Steps:
 */
 
 import { parseExcalidrawShareLink } from "@sketchi/shared";
+import { withVercelBypass } from "../../runner/utils";
 
 const BASE_URL = process.env.STAGEHAND_TARGET_URL || "http://localhost:3001";
 const BYPASS_SECRET = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
@@ -38,12 +39,9 @@ async function fetchJson(
 
   try {
     const headers = new Headers(init?.headers);
-    if (BYPASS_SECRET) {
-      headers.set("x-vercel-protection-bypass", BYPASS_SECRET);
-      headers.set("x-vercel-set-bypass-cookie", "true");
-    }
+    const finalUrl = withVercelBypass(url, BYPASS_SECRET);
 
-    const response = await fetch(url, {
+    const response = await fetch(finalUrl, {
       ...init,
       headers,
       signal: controller.signal,
