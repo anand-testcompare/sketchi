@@ -1,4 +1,4 @@
-import { captureMessage, withScope } from "@sentry/nextjs";
+import { captureMessage, flush, withScope } from "@sentry/nextjs";
 import { createTraceId } from "@sketchi/shared";
 
 export type LogLevel = "info" | "warning" | "error";
@@ -185,15 +185,26 @@ function sendToSentry(event: ApiLogEvent, level: LogLevel) {
 export function logApiEvent(
   event: ApiLogEvent,
   options: { level?: LogLevel } = {}
-): void {
+): Promise<void> {
   const level = options.level ?? "info";
   const normalized = buildLogEvent(event, level);
 
   console.log(JSON.stringify(normalized));
 
   if (level === "info" && !normalized.sampled) {
-    return;
+    return Promise.resolve();
   }
 
   sendToSentry(normalized, level);
+
+  if (level === "info") {
+    return Promise.resolve();
+  }
+
+  // Route handlers on serverless platforms may terminate immediately after the
+  // response is returned. Flushing on warning/error makes these events far more
+  // reliable (call sites can choose to await this).
+  return flush(2000)
+    .then(() => undefined)
+    .catch(() => undefined);
 }

@@ -9,6 +9,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockCaptureMessage = vi.fn();
+const mockFlush = vi.fn().mockResolvedValue(true);
 
 const mockSetLevel = vi.fn();
 const mockSetTag = vi.fn();
@@ -19,6 +20,7 @@ const mockConsoleLog = vi.fn();
 
 vi.mock("@sentry/nextjs", () => ({
   captureMessage: mockCaptureMessage,
+  flush: mockFlush,
   withScope: vi.fn((cb: (scope: unknown) => void) => {
     const scope = {
       setLevel: mockSetLevel,
@@ -37,6 +39,7 @@ beforeEach(() => {
   console.log = mockConsoleLog;
 
   mockCaptureMessage.mockClear();
+  mockFlush.mockClear();
   mockSetLevel.mockClear();
   mockSetTag.mockClear();
   mockSetContext.mockClear();
@@ -52,7 +55,7 @@ describe("web observability", () => {
   it("TS-OBS-3: writes message and severity to stdout JSON", async () => {
     const { logApiEvent } = await import("./observability");
 
-    logApiEvent({
+    await logApiEvent({
       traceId: "trace-test-3",
       op: "request.complete",
       method: "POST",
@@ -83,7 +86,7 @@ describe("web observability", () => {
   it("TS-OBS-4: attaches tags", async () => {
     const { logApiEvent } = await import("./observability");
 
-    logApiEvent({
+    await logApiEvent({
       traceId: "trace-test-4",
       op: "request.complete",
       method: "POST",
