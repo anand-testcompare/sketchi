@@ -157,21 +157,29 @@ async function assertNewLibraryRoughnessDefaults(page: PageLike) {
     state: "visible",
     timeout: 20_000,
   });
-  const roughness = page.locator("#roughness");
 
-  const max = await roughness.getAttribute("max");
+  const { max, step, valueRaw } = await page.evaluate(() => {
+    const input = document.querySelector<HTMLInputElement>("#roughness");
+    if (!input) {
+      throw new Error("#roughness input not found");
+    }
+    return {
+      max: input.max,
+      step: input.step,
+      valueRaw: input.value,
+    };
+  });
+
   if (max !== "2") {
     throw new Error(`Expected #roughness max="2", got ${JSON.stringify(max)}`);
   }
 
-  const step = await roughness.getAttribute("step");
   if (step !== "0.1") {
     throw new Error(
       `Expected #roughness step="0.1", got ${JSON.stringify(step)}`
     );
   }
 
-  const valueRaw = await roughness.inputValue();
   const value = Number(valueRaw);
   if (!Number.isFinite(value) || Math.abs(value - 0.4) > 1e-6) {
     throw new Error(
