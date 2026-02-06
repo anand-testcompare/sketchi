@@ -12,13 +12,10 @@ Steps:
 2) Verify `source`, `permission`, and non-empty `elements`.
 3) Ensure a known element id exists (guards against upstream scene changes).
 4) Call Sketchi modify endpoint with explicit edits + preferExplicitEdits.
-5) Parse returned Excalidraw share link and render to PNG via Playwright harness.
+5) Parse returned Excalidraw share link and verify the explicit edit was applied.
 */
 
-import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import { parseExcalidrawShareLink } from "@sketchi/shared";
-import { chromium } from "playwright";
 
 const BASE_URL = process.env.STAGEHAND_TARGET_URL || "http://localhost:3001";
 const BYPASS_SECRET = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
@@ -27,83 +24,7 @@ const PLUS_LINK_URL = "https://link.excalidraw.com/l/9e01NdVniGv/40KFTlwYlBD";
 const TARGET_TEXT_ID = "browserbase-playwright_text";
 const UPDATED_TEXT = "Browserbase Playwright UPDATED";
 
-const OUTPUT_DIR = join(import.meta.dir, "../../../artifacts");
-const OUTPUT_PNG = join(OUTPUT_DIR, "excalidraw-plus-modify.png");
-
 const REQUEST_TIMEOUT_MS = 30_000;
-
-const EXPORT_HARNESS_HTML = `
-<!DOCTYPE html>
-<html>
-<head>
-  <script type="importmap">
-  { "imports": { "@excalidraw/excalidraw": "https://esm.sh/@excalidraw/excalidraw@0.18.0" } }
-  </script>
-</head>
-<body>
-  <div id="status">Loading...</div>
-  <script type="module">
-    import { exportToBlob } from "https://esm.sh/@excalidraw/excalidraw@0.18.0";
-    window.exportPng = async function(elements, options = {}) {
-      const { scale = 2, padding = 20, background = true, backgroundColor = "#ffffff" } = options;
-      const blob = await exportToBlob({
-        elements,
-        appState: { exportScale: scale, exportBackground: background, viewBackgroundColor: backgroundColor },
-        files: null,
-        exportPadding: padding,
-        mimeType: "image/png",
-      });
-      const buffer = await blob.arrayBuffer();
-      const bytes = new Uint8Array(buffer);
-      let binary = '';
-      for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-      return btoa(binary);
-    };
-    window.exportReady = true;
-    document.getElementById('status').textContent = 'Ready';
-  </script>
-</body>
-</html>
-`;
-
-async function renderElementsToPng(
-  elements: Record<string, unknown>[]
-): Promise<Buffer> {
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext();
-  const page = await context.newPage();
-
-  try {
-    await page.goto("about:blank");
-    await page.evaluate((html) => {
-      document.open();
-      document.write(html);
-      document.close();
-    }, EXPORT_HARNESS_HTML);
-
-    await page.waitForFunction("window.exportReady === true", {
-      timeout: REQUEST_TIMEOUT_MS,
-    });
-
-    const base64Png = (await page.evaluate(
-      async ({ elements }) => {
-        // biome-ignore lint/suspicious/noExplicitAny: injected by harness
-        return await (window as any).exportPng(elements, {
-          scale: 2,
-          padding: 20,
-          background: true,
-          backgroundColor: "#ffffff",
-        });
-      },
-      { elements }
-    )) as string;
-
-    return Buffer.from(base64Png, "base64");
-  } finally {
-    await context.close();
-    await browser.close();
-  }
-}
 
 async function fetchJson(
   url: string,
@@ -213,8 +134,8 @@ async function main() {
   }
   console.log(`  Share URL: ${shareUrl.slice(0, 80)}...`);
 
-  // Step 3: Parse returned share link and render to PNG
-  console.log("\n[3/3] Parsing returned share link and rendering PNG...");
+  // Step 3: Parse returned share link and validate edit applied
+  console.log("\n[3/3] Parsing returned share link and validating edit...");
   const shareParsed = await parseExcalidrawShareLink(shareUrl);
   if (
     !Array.isArray(shareParsed.elements) ||
@@ -222,16 +143,14 @@ async function main() {
   ) {
     throw new Error("parsed share link missing elements");
   }
-  const png = await renderElementsToPng(
-    shareParsed.elements as Record<string, unknown>[]
-  );
-  if (png.length === 0) {
-    throw new Error("rendered PNG was empty");
+  const updatedElement = shareParsed.elements.find(
+    (el) => (el as { id?: unknown } | null)?.id === TARGET_TEXT_ID
+  ) as { text?: unknown } | undefined;
+  if (updatedElement?.text !== UPDATED_TEXT) {
+    throw new Error(
+      `expected '${TARGET_TEXT_ID}.text' to be updated to '${UPDATED_TEXT}'`
+    );
   }
-
-  await mkdir(OUTPUT_DIR, { recursive: true });
-  await writeFile(OUTPUT_PNG, png);
-  console.log(`  Wrote PNG: ${OUTPUT_PNG} (${png.length} bytes)`);
 
   console.log(
     "\nTEST PASSED: Excalidraw+ URL parsed and modified successfully"
