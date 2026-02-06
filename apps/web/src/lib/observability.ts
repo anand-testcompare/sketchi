@@ -5,6 +5,9 @@ export type LogLevel = "info" | "warning" | "error";
 
 export interface ApiLogEvent extends Record<string, unknown> {
   traceId: string;
+  message?: string;
+  severity?: "info" | "warn" | "error";
+  level?: "info" | "warn" | "error";
   service?: string;
   component?: string;
   op: string;
@@ -38,6 +41,40 @@ function clampMessage(message?: string): string | undefined {
     return message;
   }
   return `${message.slice(0, MAX_MESSAGE_LENGTH)}…`;
+}
+
+function formatSentryMessage(event: ApiLogEvent): string {
+  const parts: string[] = [];
+
+  const service = event.service ?? "web";
+  const component = event.component;
+
+  parts.push(service);
+  if (component) {
+    parts.push(component);
+  }
+  parts.push(event.op);
+
+  if (event.orpcRoute) {
+    parts.push(`route=${event.orpcRoute}`);
+  }
+  if (event.method) {
+    parts.push(event.method);
+  }
+  if (event.path) {
+    parts.push(event.path);
+  }
+  if (typeof event.responseStatus === "number") {
+    parts.push(`status=${event.responseStatus}`);
+  }
+  if (event.status) {
+    parts.push(`result=${event.status}`);
+  }
+  if (typeof event.durationMs === "number") {
+    parts.push(`durMs=${Math.round(event.durationMs)}`);
+  }
+
+  return clampMessage(parts.join(" ")) ?? event.op;
 }
 
 function getRelease(): string | null {
@@ -94,7 +131,9 @@ function buildLogEvent(event: ApiLogEvent, level: LogLevel): ApiLogEvent {
   const traceId = event.traceId || createTraceId();
   const sampled = level === "info" ? shouldSample(traceId, SAMPLE_RATE) : true;
 
-  return {
+  const normalizedSeverity = level === "warning" ? "warn" : level;
+
+  const base: ApiLogEvent = {
     service: "web",
     component: event.component ?? "orpc",
     env: process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "dev",
@@ -104,18 +143,42 @@ function buildLogEvent(event: ApiLogEvent, level: LogLevel): ApiLogEvent {
     traceId,
     errorMessage: clampMessage(event.errorMessage),
     sampled,
+    severity: normalizedSeverity,
+    level: normalizedSeverity,
+  };
+
+  return {
+    ...base,
+    message: base.message ?? formatSentryMessage(base),
   };
 }
 
 function sendToSentry(event: ApiLogEvent, level: LogLevel) {
+  const message = formatSentryMessage(event);
   withScope((scope) => {
     scope.setLevel(level);
     scope.setTag("traceId", event.traceId);
+    if (event.service) {
+      scope.setTag("service", event.service);
+    }
+    if (event.component) {
+      scope.setTag("component", event.component);
+    }
+    scope.setTag("op", event.op);
     if (event.orpcRoute) {
       scope.setTag("orpc.route", event.orpcRoute);
     }
+    if (event.method) {
+      scope.setTag("http.method", event.method);
+    }
+    if (typeof event.responseStatus === "number") {
+      scope.setTag("http.status_code", String(event.responseStatus));
+    }
+    if (event.status) {
+      scope.setTag("status", event.status);
+    }
     scope.setContext("telemetry", event);
-    captureMessage(event.op);
+    captureMessage(message);
   });
 }
 

@@ -36,15 +36,18 @@
 - `bun run build` builds
 
 ## Testing
-Priority: API > E2E > unit (last resort)
+Priority: API > E2E > manual/verification > unit (last resort)
 
 1. **API tests** - for true public APIs (none currently)
 2. **E2E tests** - primary method; UI flows
+3. **Manual Verification** - for fixes where CI tests add low value; use checklist + log analysis
 
-Never mock HTTP; `convex-test` mocks Convex backend only.
+Never mock HTTP; `convex-test` mocks Convex backend only. Verify functional intent/behavior over code coverage.
 
 ## Test Planning
-Outline scenarios upfront. Create `.ts` with description comment - confirm approach before implementing.
+Outline scenarios upfront. Create `.ts` (for E2E) or a manual checklist (for verification) with description comment - confirm approach before implementing. 
+
+For manual verification, structure the checklist and log requirements so they could be automated via an LLM (e.g. "analyze logs for X abnormality"). Add results/logs to issue comments.
 
 ## Stagehand E2E
 Location: `tests/e2e/` | Stagehand 3 TS via OpenRouter
