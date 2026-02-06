@@ -16,7 +16,6 @@ Steps:
 */
 
 import { parseExcalidrawShareLink } from "@sketchi/shared";
-import { withVercelBypass } from "../../runner/utils";
 
 const BASE_URL = process.env.STAGEHAND_TARGET_URL || "http://localhost:3001";
 const BYPASS_SECRET = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
@@ -26,6 +25,15 @@ const TARGET_TEXT_ID = "browserbase-playwright_text";
 const UPDATED_TEXT = "Browserbase Playwright UPDATED";
 
 const REQUEST_TIMEOUT_MS = 30_000;
+
+function withBypass(url: string, bypassSecret?: string) {
+  if (!bypassSecret) {
+    return url;
+  }
+  const parsed = new URL(url);
+  parsed.searchParams.set("x-vercel-protection-bypass", bypassSecret);
+  return parsed.toString();
+}
 
 async function fetchJson(
   url: string,
@@ -39,15 +47,59 @@ async function fetchJson(
 
   try {
     const headers = new Headers(init?.headers);
-    const finalUrl = withVercelBypass(url, BYPASS_SECRET);
+    const finalUrl = withBypass(url, BYPASS_SECRET);
+    if (BYPASS_SECRET) {
+      headers.set("x-vercel-protection-bypass", BYPASS_SECRET);
+    }
 
-    const response = await fetch(finalUrl, {
-      ...init,
-      headers,
-      signal: controller.signal,
-    });
-    const json = (await response.json()) as unknown;
-    return { status: response.status, json, headers: response.headers };
+    // In CI we may hit a http->https redirect or canonical-host redirect. Follow at
+    // most one redirect so we can preserve bypass param + header.
+    let currentUrl = finalUrl;
+    for (let i = 0; i < 2; i++) {
+      const response = await fetch(currentUrl, {
+        ...init,
+        headers,
+        signal: controller.signal,
+        redirect: "manual",
+      });
+
+      if (
+        response.status === 301 ||
+        response.status === 302 ||
+        response.status === 303 ||
+        response.status === 307 ||
+        response.status === 308
+      ) {
+        const location = response.headers.get("location");
+        if (location && i === 0) {
+          const next = new URL(location, currentUrl).toString();
+          currentUrl = withBypass(next, BYPASS_SECRET);
+          continue;
+        }
+      }
+
+      const contentType = response.headers.get("content-type") || "";
+      const raw = await response.text();
+      try {
+        const json = JSON.parse(raw) as unknown;
+        return { status: response.status, json, headers: response.headers };
+      } catch {
+        const location = response.headers.get("location");
+        throw new Error(
+          [
+            `Failed to parse JSON (status=${response.status})`,
+            `url=${currentUrl}`,
+            `content-type=${contentType || "(missing)"}`,
+            location ? `location=${location}` : null,
+            `body=${raw.slice(0, 300)}`,
+          ]
+            .filter(Boolean)
+            .join(" ")
+        );
+      }
+    }
+
+    throw new Error(`Too many redirects fetching ${finalUrl}`);
   } finally {
     clearTimeout(timer);
   }
