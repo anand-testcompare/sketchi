@@ -94,11 +94,32 @@ async function runScenario(
   validate: (result: {
     diagram: {
       shapes: { id: string }[];
-      arrows: { fromId: string; toId: string; elbowed?: boolean }[];
+      arrows: {
+        id: string;
+        fromId: string;
+        toId: string;
+        elbowed?: boolean;
+      }[];
     };
     layouted: {
-      shapes: { id: string; x: number; y: number }[];
-      arrows: { elbowed: boolean; points: [number, number][] }[];
+      shapes: {
+        id: string;
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      }[];
+      arrows: {
+        id: string;
+        fromId: string;
+        toId: string;
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        elbowed: boolean;
+        points: [number, number][];
+      }[];
     };
     elements: Record<string, unknown>[];
   }) => void
@@ -208,6 +229,73 @@ describe.sequential("diagramLayout", () => {
         true
       );
       expect(result.elements.length).toBeGreaterThanOrEqual(5);
+    });
+  });
+
+  test("sequence layout semantics", async () => {
+    const intermediate: IntermediateFormat = {
+      nodes: [
+        { id: "user", label: "User", kind: "actor" },
+        { id: "api", label: "API Gateway", kind: "service" },
+        { id: "db", label: "Database", kind: "database" },
+      ],
+      edges: [
+        { id: "m1", fromId: "user", toId: "api", label: "login request" },
+        { id: "m2", fromId: "api", toId: "db", label: "query credentials" },
+        { id: "m3", fromId: "db", toId: "api", label: "return user data" },
+        { id: "m4", fromId: "api", toId: "user", label: "return auth token" },
+      ],
+      graphOptions: {
+        diagramType: "sequence",
+        layout: { direction: "LR" },
+      },
+    };
+
+    await runScenario("Sequence layout semantics", intermediate, (result) => {
+      const byId = new Map(
+        result.layouted.shapes.map((shape) => [shape.id, shape])
+      );
+      const participants = ["user", "api", "db"] as const;
+
+      for (const id of participants) {
+        expect(byId.has(id)).toBe(true);
+        expect(byId.has(`${id}__lifeline`)).toBe(true);
+      }
+
+      const headerYs = participants.map((id) => byId.get(id)?.y ?? -1);
+      expect(new Set(headerYs).size).toBe(1);
+
+      for (const id of participants) {
+        const header = byId.get(id);
+        const lifeline = byId.get(`${id}__lifeline`);
+        expect(header).toBeTruthy();
+        expect(lifeline).toBeTruthy();
+        if (!(header && lifeline)) {
+          continue;
+        }
+        expect(lifeline.y).toBeGreaterThan(header.y);
+        expect(lifeline.height).toBeGreaterThanOrEqual(220);
+      }
+
+      const arrowsById = new Map(
+        result.layouted.arrows.map((arrow) => [arrow.id, arrow])
+      );
+      const messageOrder = ["m1", "m2", "m3", "m4"] as const;
+      const messageYs = messageOrder.map((id) => arrowsById.get(id)?.y ?? -1);
+      expect(messageYs[0]).toBeLessThan(messageYs[1]);
+      expect(messageYs[1]).toBeLessThan(messageYs[2]);
+      expect(messageYs[2]).toBeLessThan(messageYs[3]);
+
+      for (const id of messageOrder) {
+        const arrow = arrowsById.get(id);
+        expect(arrow).toBeTruthy();
+        if (!arrow) {
+          continue;
+        }
+        expect(Math.abs(arrow.height)).toBeLessThanOrEqual(1);
+        const lastPoint = arrow.points.at(-1);
+        expect(lastPoint?.[1] ?? 1).toBe(0);
+      }
     });
   });
 

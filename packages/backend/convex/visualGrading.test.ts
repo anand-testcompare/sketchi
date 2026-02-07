@@ -107,6 +107,10 @@ interface ScenarioResult {
   score?: number;
   issues?: string[];
   strengths?: string[];
+  hasParticipants?: boolean;
+  hasLifelines?: boolean;
+  messagesLeftToRight?: boolean;
+  chronologicalOrder?: boolean;
   analysisTokens?: number;
   gradingTokens?: number;
   renderDurationMs?: number;
@@ -256,6 +260,22 @@ async function runScenario(scenario: Scenario): Promise<ScenarioResult> {
     const grading = gradingResult.grading as Record<string, unknown>;
     const score = readScore(grading);
     const passed = typeof score === "number" && score >= scenario.minScore;
+    const hasParticipants =
+      typeof grading.hasParticipants === "boolean"
+        ? grading.hasParticipants
+        : undefined;
+    const hasLifelines =
+      typeof grading.hasLifelines === "boolean"
+        ? grading.hasLifelines
+        : undefined;
+    const messagesLeftToRight =
+      typeof grading.messagesLeftToRight === "boolean"
+        ? grading.messagesLeftToRight
+        : undefined;
+    const chronologicalOrder =
+      typeof grading.chronologicalOrder === "boolean"
+        ? grading.chronologicalOrder
+        : undefined;
 
     await writeJson(join(outputDir, intermediateFile), {
       scenario: scenario.name,
@@ -293,6 +313,10 @@ async function runScenario(scenario: Scenario): Promise<ScenarioResult> {
       strengths: Array.isArray(grading.strengths)
         ? (grading.strengths as string[])
         : undefined,
+      hasParticipants,
+      hasLifelines,
+      messagesLeftToRight,
+      chronologicalOrder,
       analysisTokens: analysis.tokens,
       gradingTokens: gradingResult.tokens,
       renderDurationMs: renderResult.durationMs,
@@ -391,6 +415,18 @@ describe.sequential("visual grading", () => {
       );
 
       await writeSummary(results);
+
+      const sequenceResult = results.find(
+        (result) => result.scenario === "sequence-three-participants"
+      );
+      expect(sequenceResult).toBeTruthy();
+      if (sequenceResult) {
+        expect(sequenceResult.status).toBe("passed");
+        expect(sequenceResult.hasParticipants).toBe(true);
+        expect(sequenceResult.hasLifelines).toBe(true);
+        expect(sequenceResult.messagesLeftToRight).toBe(true);
+        expect(sequenceResult.chronologicalOrder).toBe(true);
+      }
 
       const failures = results.filter((result) => result.status !== "passed");
       // Allow up to 2 failures - LLM-based grading has inherent variance (6 scenarios, ~33% tolerance)
