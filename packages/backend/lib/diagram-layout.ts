@@ -10,6 +10,10 @@ import {
   toLayoutOverrides,
 } from "./diagram-layout-intermediate";
 import { applyRadialLayout } from "./diagram-layout-radial";
+import {
+  applySequenceLayout,
+  convertIntermediateToSequenceDiagram,
+} from "./diagram-layout-sequence";
 import { sortArrows, sortShapes } from "./diagram-layout-sorting";
 import type {
   LayoutConfig,
@@ -69,10 +73,12 @@ const LAYOUT_CONFIGS: Record<string, LayoutConfig> = {
     edgesep: 20,
     edgeRouting: "straight",
   },
+  // NOTE: Sequence diagrams use a custom layout (see diagram-layout-sequence.ts).
+  // This config is kept so helpers like getLayoutDirection("sequence") stay accurate.
   sequence: {
     rankdir: "LR",
-    nodesep: 120,
-    ranksep: 80,
+    nodesep: 200,
+    ranksep: 110,
     edgesep: 20,
     edgeRouting: "straight",
   },
@@ -178,11 +184,14 @@ export function applyLayout(
   diagramType: string,
   overrides?: LayoutOverrides
 ): LayoutedDiagram {
-  const config = resolveLayoutConfig(diagramType, overrides);
+  if (diagramType === "sequence") {
+    return applySequenceLayout(diagram, overrides);
+  }
   if (diagramType === "mindmap") {
     return applyRadialLayout(diagram);
   }
 
+  const config = resolveLayoutConfig(diagramType, overrides);
   const shapes = sortShapes(diagram.shapes);
   const arrows = sortArrows(diagram.arrows);
   const useElbow = config.edgeRouting === "elbow";
@@ -278,10 +287,13 @@ export function layoutIntermediateDiagram(intermediate: IntermediateFormat): {
   diagramType: DiagramType;
   layoutOverrides?: LayoutOverrides;
 } {
-  const diagram = convertIntermediateToDiagram(intermediate);
   const diagramType =
     intermediate.graphOptions?.diagramType ?? DEFAULT_DIAGRAM_TYPE;
   const layoutOverrides = toLayoutOverrides(intermediate);
+  const diagram =
+    diagramType === "sequence"
+      ? convertIntermediateToSequenceDiagram(intermediate)
+      : convertIntermediateToDiagram(intermediate);
   const layouted = applyLayout(diagram, diagramType, layoutOverrides);
 
   return {
