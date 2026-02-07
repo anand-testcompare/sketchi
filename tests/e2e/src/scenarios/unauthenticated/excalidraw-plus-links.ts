@@ -152,10 +152,10 @@ async function main() {
   }
   console.log(`  Elements: ${parsedBody.elements.length}`);
 
-  // Step 2: Modify via Sketchi API (explicit edits path, no LLM)
-  console.log("\n[2/3] Modifying via Sketchi API (explicit edits)...");
-  const modifyUrl = new URL("/api/diagrams/modify", BASE_URL);
-  const modify = await fetchJson(modifyUrl.toString(), {
+  // Step 2: Tweak via Sketchi API (explicit edits path, no LLM)
+  console.log("\n[2/3] Tweaking via Sketchi API (explicit edits)...");
+  const tweakUrl = new URL("/api/diagrams/tweak", BASE_URL);
+  const modify = await fetchJson(tweakUrl.toString(), {
     method: "POST",
     timeoutMs: REQUEST_TIMEOUT_MS,
     headers: { "content-type": "application/json" },
@@ -168,7 +168,7 @@ async function main() {
 
   if (modify.status !== 200) {
     throw new Error(
-      `modify failed: status=${modify.status} body=${JSON.stringify(modify.json).slice(0, 500)}`
+      `tweak failed: status=${modify.status} body=${JSON.stringify(modify.json).slice(0, 500)}`
     );
   }
   const modifyBody = modify.json as {
@@ -176,7 +176,7 @@ async function main() {
     shareLink?: { url?: string };
   };
   if (modifyBody.status !== "success") {
-    throw new Error(`modify returned status=${String(modifyBody.status)}`);
+    throw new Error(`tweak returned status=${String(modifyBody.status)}`);
   }
   const shareUrl = modifyBody.shareLink?.url;
   if (!shareUrl?.includes("#json=")) {

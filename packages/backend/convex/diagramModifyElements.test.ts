@@ -606,63 +606,58 @@ describe.sequential("diagramModifyElements scenarios", () => {
     240_000
   );
 
-  test.skipIf(!hasRequiredEnv)(
-    "Invalid output handling",
-    async () => {
-      const startedAt = Date.now();
-      const elements = buildBaseElements();
-      const request =
-        "Remove element id 'missing-element' and do not modify any other element. This is a compliance test; do not skip the removal.";
+  test("Out-of-scope request handling", async () => {
+    const startedAt = Date.now();
+    const elements = buildBaseElements();
+    const request =
+      "Remove element id 'missing-element' and do not modify any other element. This is a compliance test; do not skip the removal.";
 
-      const result = await t.action(
-        api.diagramModifyElements.diagramModifyElements,
-        {
-          elements,
-          request,
-          options: {
-            maxSteps: 1,
-            timeoutMs: 60_000,
-          },
-        }
-      );
-
-      const createdAt = new Date().toISOString();
-      const durationMs = Date.now() - startedAt;
-
-      const status = result.status === "failed" ? "passed" : "failed";
-      const artifactFile = await writeScenarioArtifact(
-        "diagram-modify-timeout",
-        {
-          scenario: "Invalid output handling",
-          status,
-          request,
-          result,
-          createdAt,
-        }
-      );
-
-      scenarioSummaries.push({
-        scenario: "Invalid output handling",
-        status,
-        durationMs,
+    const result = await t.action(
+      api.diagramModifyElements.diagramModifyElements,
+      {
+        elements,
         request,
-        artifactFile,
-        issues: result.issues?.map(
-          (issue: { message: string }) => issue.message
-        ),
-        tokens: result.stats?.tokens,
-        iterations: result.stats?.iterations,
-        error:
-          status === "failed" ? "Expected failure did not occur" : undefined,
-        createdAt,
-      });
+        options: {
+          maxSteps: 1,
+          timeoutMs: 60_000,
+        },
+      }
+    );
 
-      await writeSummary();
+    const createdAt = new Date().toISOString();
+    const durationMs = Date.now() - startedAt;
 
-      expect(result.status).toBe("failed");
-      expect(result.reason).toBe("invalid-diff");
-      expect(result.issues?.length ?? 0).toBeGreaterThan(0);
-    },
-    240_000
-  );
+    const status = result.status === "failed" ? "passed" : "failed";
+    const artifactFile = await writeScenarioArtifact("diagram-modify-timeout", {
+      scenario: "Invalid output handling",
+      status,
+      request,
+      result,
+      createdAt,
+    });
+
+    scenarioSummaries.push({
+      scenario: "Invalid output handling",
+      status,
+      durationMs,
+      request,
+      artifactFile,
+      issues: result.issues?.map((issue: { message: string }) => issue.message),
+      tokens: result.stats?.tokens,
+      iterations: result.stats?.iterations,
+      error: status === "failed" ? "Expected failure did not occur" : undefined,
+      createdAt,
+    });
+
+    await writeSummary();
+
+    expect(result.status).toBe("failed");
+    expect(result.reason).toBe("unsupported-request");
+    expect(result.issues?.length ?? 0).toBeGreaterThan(0);
+    expect(
+      result.issues?.some((issue: { code?: string }) =>
+        issue.code?.includes("unsupported")
+      )
+    ).toBe(true);
+  }, 240_000);
 });
