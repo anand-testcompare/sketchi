@@ -10,6 +10,10 @@ import {
   toLayoutOverrides,
 } from "./diagram-layout-intermediate";
 import { applyRadialLayout } from "./diagram-layout-radial";
+import {
+  applySequenceLayout,
+  convertIntermediateToSequenceDiagram,
+} from "./diagram-layout-sequence";
 import { sortArrows, sortShapes } from "./diagram-layout-sorting";
 import type {
   LayoutConfig,
@@ -178,11 +182,14 @@ export function applyLayout(
   diagramType: string,
   overrides?: LayoutOverrides
 ): LayoutedDiagram {
-  const config = resolveLayoutConfig(diagramType, overrides);
+  if (diagramType === "sequence") {
+    return applySequenceLayout(diagram, overrides);
+  }
   if (diagramType === "mindmap") {
     return applyRadialLayout(diagram);
   }
 
+  const config = resolveLayoutConfig(diagramType, overrides);
   const shapes = sortShapes(diagram.shapes);
   const arrows = sortArrows(diagram.arrows);
   const useElbow = config.edgeRouting === "elbow";
@@ -278,10 +285,13 @@ export function layoutIntermediateDiagram(intermediate: IntermediateFormat): {
   diagramType: DiagramType;
   layoutOverrides?: LayoutOverrides;
 } {
-  const diagram = convertIntermediateToDiagram(intermediate);
   const diagramType =
     intermediate.graphOptions?.diagramType ?? DEFAULT_DIAGRAM_TYPE;
   const layoutOverrides = toLayoutOverrides(intermediate);
+  const diagram =
+    diagramType === "sequence"
+      ? convertIntermediateToSequenceDiagram(intermediate)
+      : convertIntermediateToDiagram(intermediate);
   const layouted = applyLayout(diagram, diagramType, layoutOverrides);
 
   return {
