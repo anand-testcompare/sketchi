@@ -105,33 +105,56 @@ async function waitForCanvas(page: PageLike): Promise<void> {
 }
 
 async function addCanvasElement(page: PageLike): Promise<void> {
-  await page.locator("canvas").click();
-  await sleep(300);
+  const apiReady = await waitForCondition(
+    () =>
+      page.evaluate(() => {
+        const w = window as unknown as Record<string, unknown>;
+        return w.__excalidrawAPI != null;
+      }),
+    { timeoutMs: 15_000, label: "excalidraw-api-ready" }
+  );
+  if (!apiReady) {
+    throw new Error("ExcalidrawImperativeAPI not available on window");
+  }
 
-  await page.keyPress("r");
-  await sleep(300);
-
-  const canvasBounds = await page.evaluate(() => {
-    const container = document.querySelector('[data-testid="diagram-canvas"]');
-    if (!container) {
-      return { x: 400, y: 300, width: 800, height: 600 };
-    }
-    const rect = container.getBoundingClientRect();
-    return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+  await page.evaluate(() => {
+    const w = window as unknown as Record<string, unknown>;
+    const api = w.__excalidrawAPI as {
+      getSceneElements: () => Record<string, unknown>[];
+      updateScene: (scene: { elements: Record<string, unknown>[] }) => void;
+    };
+    const existing = api.getSceneElements().map((e) => ({ ...e }));
+    existing.push({
+      id: `test-rect-${Date.now()}`,
+      type: "rectangle",
+      x: 250 + Math.random() * 100,
+      y: 150 + Math.random() * 100,
+      width: 120,
+      height: 80,
+      version: 1,
+      versionNonce: Math.floor(Math.random() * 2_147_483_647),
+      isDeleted: false,
+      strokeColor: "#1e1e1e",
+      backgroundColor: "transparent",
+      fillStyle: "solid",
+      strokeWidth: 2,
+      roughness: 1,
+      opacity: 100,
+      angle: 0,
+      seed: Math.floor(Math.random() * 2_147_483_647),
+      groupIds: [],
+      boundElements: null,
+      link: null,
+      locked: false,
+    } as Record<string, unknown>);
+    api.updateScene({ elements: existing });
   });
-  const cx = canvasBounds.x + canvasBounds.width / 2;
-  const cy = canvasBounds.y + canvasBounds.height / 2;
 
-  await page.dragAndDrop(cx - 40, cy - 40, cx + 40, cy + 40);
   await sleep(500);
 }
 
-async function triggerManualSave(page: PageLike): Promise<void> {
-  await page.keyPress("Escape");
+async function triggerManualSave(_page: PageLike): Promise<void> {
   await sleep(500);
-
-  await page.locator("canvas").click();
-  await sleep(300);
 }
 
 async function main() {

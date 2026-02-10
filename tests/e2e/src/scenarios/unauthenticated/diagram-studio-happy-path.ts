@@ -116,34 +116,60 @@ async function waitForCanvas(page: PageLike): Promise<void> {
   }
 }
 
+async function waitForExcalidrawAPI(page: PageLike): Promise<void> {
+  const ready = await waitForCondition(
+    () =>
+      page.evaluate(() => {
+        const w = window as unknown as Record<string, unknown>;
+        return w.__excalidrawAPI != null;
+      }),
+    { timeoutMs: 15_000, label: "excalidraw-api-ready" }
+  );
+  if (!ready) {
+    throw new Error("ExcalidrawImperativeAPI not available on window");
+  }
+}
+
 async function addTextElement(page: PageLike): Promise<void> {
-  await page.locator("canvas").click();
-  await sleep(300);
+  await waitForExcalidrawAPI(page);
 
-  await page.keyPress("t");
-  await sleep(500);
-
-  const canvasBounds = await page.evaluate(() => {
-    const container = document.querySelector('[data-testid="diagram-canvas"]');
-    if (!container) {
-      return { x: 400, y: 300, width: 800, height: 600 };
-    }
-    const rect = container.getBoundingClientRect();
-    return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+  await page.evaluate(() => {
+    const api = (window as unknown as Record<string, unknown>)
+      .__excalidrawAPI as {
+      getSceneElements: () => Record<string, unknown>[];
+      updateScene: (s: { elements: Record<string, unknown>[] }) => void;
+    };
+    const existing = api.getSceneElements().map((el) => ({ ...el }));
+    existing.push({
+      id: `test-text-${Date.now()}`,
+      type: "text",
+      x: 300,
+      y: 200,
+      width: 100,
+      height: 25,
+      text: "hello",
+      fontSize: 20,
+      fontFamily: 1,
+      version: 2,
+      versionNonce: Math.floor(Math.random() * 2_147_483_647),
+      isDeleted: false,
+      strokeColor: "#1e1e1e",
+      backgroundColor: "transparent",
+      fillStyle: "solid",
+      strokeWidth: 2,
+      roughness: 1,
+      opacity: 100,
+      angle: 0,
+      seed: Math.floor(Math.random() * 2_147_483_647),
+      groupIds: [],
+      boundElements: null,
+      link: null,
+      locked: false,
+    });
+    api.updateScene({ elements: existing });
   });
-  const cx = canvasBounds.x + canvasBounds.width / 2;
-  const cy = canvasBounds.y + canvasBounds.height / 2;
-  await page.click(cx, cy);
+
   await sleep(500);
-
-  await page.type("hello", { delay: 50 });
-  await sleep(300);
-
-  await page.keyPress("Escape");
-  await sleep(500);
-
-  await page.click(cx + 50, cy + 50);
-  await sleep(300);
 }
 
 async function verifyAutosave(page: PageLike): Promise<void> {

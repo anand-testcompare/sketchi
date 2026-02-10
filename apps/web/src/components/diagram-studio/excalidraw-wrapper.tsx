@@ -41,7 +41,13 @@ export default function ExcalidrawWrapper({
   return (
     <div className="h-full w-full" data-testid="diagram-canvas">
       <Excalidraw
-        excalidrawAPI={(api) => onReady?.(api)}
+        excalidrawAPI={(api) => {
+          if (typeof window !== "undefined") {
+            (window as unknown as Record<string, unknown>).__excalidrawAPI =
+              api;
+          }
+          onReady?.(api);
+        }}
         initialData={initialData}
         onChange={(elements, appState) => {
           if (suppressOnChangeRef?.current) {
