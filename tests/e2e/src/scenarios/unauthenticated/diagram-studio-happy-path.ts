@@ -199,7 +199,7 @@ async function getVersionAndElementCount(
 async function verifyReloadPersistence(
   page: PageLike,
   sessionUrl: string,
-  expectedVersion: string
+  minExpectedVersion: string
 ): Promise<void> {
   await page.goto(sessionUrl, { waitUntil: "domcontentloaded" });
   await waitForCanvas(page);
@@ -209,9 +209,13 @@ async function verifyReloadPersistence(
 
   const { version, elementCount } = await getVersionAndElementCount(page);
 
-  if (version !== expectedVersion) {
+  // Version may advance between capture and reload due to autosave timing.
+  // Just verify it's >= the version we saw before reload.
+  const vNum = Number.parseInt(version.replace(/\D/g, ""), 10);
+  const minNum = Number.parseInt(minExpectedVersion.replace(/\D/g, ""), 10);
+  if (Number.isNaN(vNum) || vNum < minNum) {
     throw new Error(
-      `Version mismatch after reload. Expected "${expectedVersion}", got "${version}".`
+      `Version after reload (${version}) is less than expected minimum (${minExpectedVersion}).`
     );
   }
 
