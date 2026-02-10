@@ -18,7 +18,7 @@
     "@excalidraw/excalidraw": "^0.18.0",
     "@openrouter/ai-sdk-provider": "^2.2.1",
     "@sentry/node": "^10.38.0",
-    "pako": "^1.0.11",
+    "pako": "^2.1.0",
     "@types/dagre": "^0.7.53",
     "ai": "^6.0.78",
     "convex": "catalog:",
@@ -34,8 +34,8 @@
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",
     "@sketchi/config": "workspace:*",
-    "@types/node": "^24.3.0",
-    "@types/pako": "^1.0.7",
+    "@types/node": "^24.10.12",
+    "@types/pako": "^2.0.4",
     "convex-test": "^0.0.41",
     "typescript": "catalog:",
     "vitest": "^4.0.18"
