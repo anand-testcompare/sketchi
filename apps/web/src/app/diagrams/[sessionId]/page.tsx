@@ -360,7 +360,14 @@ export default function DiagramStudioPage() {
     );
   }
 
-  const elementCount = session.latestScene?.elements?.length ?? 0;
+  const allElements = (session.latestScene?.elements ?? []) as readonly Record<
+    string,
+    unknown
+  >[];
+  const elementCount = allElements.length;
+  const nonDeletedElementCount = allElements.filter(
+    (el) => !el.isDeleted
+  ).length;
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -455,6 +462,7 @@ export default function DiagramStudioPage() {
         <ChatSidebar
           isRestructuring={isRestructuring}
           messages={chatMessages}
+          nonDeletedElementCount={nonDeletedElementCount}
           onSendPrompt={handleRestructure}
         />
       </div>
