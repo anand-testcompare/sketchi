@@ -1,0 +1,226 @@
+name: opencode-excalidraw-publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "npm tag (latest)"
+        required: true
+        type: choice
+        options:
+          - latest
+  repository_dispatch:
+    types: [publish-opencode-excalidraw]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.5
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          bun install --frozen-lockfile || (
+            echo "bun install failed; clearing Bun cache and retrying" >&2
+            bun pm cache rm
+            bun install --frozen-lockfile
+          )
+
+      - name: Test
+        working-directory: packages/opencode-excalidraw
+        run: bun run test
+
+      - name: Build
+        working-directory: packages/opencode-excalidraw
+        run: bun run build
+
+      - id: inputs
+        uses: simenandre/setup-inputs@v1
+
+      - name: Publish to npm with OIDC
+        working-directory: packages/opencode-excalidraw
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.inputs.outputs.tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="latest"
+          fi
+
+          NAME="$(node -p 'require("./package.json").name')"
+          VERSION="$(node -p 'require("./package.json").version')"
+
+          if npm view "${NAME}@${VERSION}" version >/dev/null 2>&1; then
+            echo "${NAME}@${VERSION} already exists on npm; skipping publish"
+            exit 0
+          fi
+
+          echo "Publishing ${NAME}@${VERSION} with tag: ${TAG}"
+          npm publish --tag "${TAG}" --provenance
+
+      - name: Verify published version
+        working-directory: packages/opencode-excalidraw
+        run: |
+          set -euo pipefail
+
+          TAG="${{ steps.inputs.outputs.tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="latest"
+          fi
+
+          NAME="$(node -p 'require("./package.json").name')"
+          VERSION="$(node -p 'require("./package.json").version')"
+          echo "Checking npm dist-tag '$TAG' for ${NAME}@${VERSION}..."
+
+          # npm registry can be eventually consistent right after publish.
+          # Give it a short window to make the new version visible.
+          for i in $(seq 1 20); do
+            if npm view "${NAME}@${VERSION}" version >/dev/null 2>&1; then
+              break
+            fi
+
+            if [ "$i" -eq 20 ]; then
+              echo "[ERROR] npm does not report ${NAME}@${VERSION} after publish"
+              exit 1
+            fi
+
+            echo "Waiting for npm to show ${NAME}@${VERSION} (${i}/20)..."
+            sleep 3
+          done
+
+          for i in $(seq 1 20); do
+            DIST_VERSION="$(npm view "${NAME}" dist-tags."${TAG}" 2>/dev/null || true)"
+            if [ -n "$DIST_VERSION" ] && [ "$DIST_VERSION" = "$VERSION" ]; then
+              break
+            fi
+
+            if [ "$i" -eq 20 ]; then
+              echo "[ERROR] dist-tag '$TAG' points to ${DIST_VERSION:-<empty>} (expected $VERSION)"
+              exit 1
+            fi
+
+            echo "Waiting for dist-tag '$TAG' to update (${i}/20)..."
+            sleep 3
+          done
+
+          # Best-effort signals: confirm OIDC publisher + provenance attestation.
+          EXPECTED_OIDC_EMAIL="npm-oidc-no-reply@github.com"
+          NPM_USER_EMAIL=""
+          NPM_USER_NAME=""
+          NPM_USER_RAW=""
+          for i in $(seq 1 20); do
+            VIEW_JSON="$(npm view "${NAME}@${VERSION}" --json 2>/dev/null || true)"
+
+            NPM_USER_RAW="$(
+              printf '%s' "$VIEW_JSON" | node -e '
+                const fs = require("fs");
+                const s = fs.readFileSync(0, "utf8").trim();
+                if (!s) process.exit(0);
+                try {
+                  const j = JSON.parse(s);
+                  const u = j._npmUser ?? j.dist?._npmUser ?? null;
+                  if (u == null) process.exit(0);
+                  if (typeof u === "string") process.stdout.write(u);
+                  else if (typeof u === "object" && typeof u.name === "string") process.stdout.write(u.name);
+                } catch {}
+              '
+            )"
+            NPM_USER_EMAIL="$(
+              printf '%s' "$VIEW_JSON" | node -e '
+                const fs = require("fs");
+                const s = fs.readFileSync(0, "utf8").trim();
+                if (!s) process.exit(0);
+                try {
+                  const j = JSON.parse(s);
+                  const u = j._npmUser ?? j.dist?._npmUser ?? null;
+                  if (typeof u === "string") {
+                    const m = u.match(/<([^>]+)>/);
+                    if (m) process.stdout.write(String(m[1]));
+                  } else if (u && typeof u === "object" && u.email) {
+                    process.stdout.write(String(u.email));
+                  }
+                } catch {}
+              '
+            )"
+            NPM_USER_NAME="$(
+              printf '%s' "$VIEW_JSON" | node -e '
+                const fs = require("fs");
+                const s = fs.readFileSync(0, "utf8").trim();
+                if (!s) process.exit(0);
+                try {
+                  const j = JSON.parse(s);
+                  const u = j._npmUser ?? j.dist?._npmUser ?? null;
+                  if (typeof u === "string") {
+                    const m = u.match(/^([^<]+)</);
+                    if (m) process.stdout.write(String(m[1]).trim());
+                    else process.stdout.write(u);
+                  } else if (u && typeof u === "object" && u.name) {
+                    process.stdout.write(String(u.name));
+                  }
+                } catch {}
+              '
+            )"
+
+            if [ "$NPM_USER_EMAIL" = "$EXPECTED_OIDC_EMAIL" ] || [ "$NPM_USER_NAME" = "$EXPECTED_OIDC_EMAIL" ] || printf '%s' "$NPM_USER_RAW" | grep -q "$EXPECTED_OIDC_EMAIL"; then
+              break
+            fi
+
+            if [ "$i" -eq 20 ]; then
+              echo "[ERROR] expected OIDC publish; npm reports _npmUser.raw='${NPM_USER_RAW:-<empty>}' _npmUser.email='${NPM_USER_EMAIL:-<empty>}' _npmUser.name='${NPM_USER_NAME:-<empty>}'"
+              exit 1
+            fi
+
+            echo "Waiting for npm _npmUser to show OIDC publisher (${i}/20)..."
+            sleep 3
+          done
+
+          PREDICATE_TYPE=""
+          for i in $(seq 1 20); do
+            VIEW_JSON="$(npm view "${NAME}@${VERSION}" --json 2>/dev/null || true)"
+            PREDICATE_TYPE="$(
+              printf '%s' "$VIEW_JSON" | node -e '
+                const fs = require("fs");
+                const s = fs.readFileSync(0, "utf8").trim();
+                if (!s) process.exit(0);
+                try {
+                  const j = JSON.parse(s);
+                  const p = j.dist?.attestations?.provenance?.predicateType ?? "";
+                  if (p) process.stdout.write(String(p));
+                } catch {}
+              '
+            )"
+
+            if [ "$PREDICATE_TYPE" = "https://slsa.dev/provenance/v1" ]; then
+              break
+            fi
+
+            if [ "$i" -eq 20 ]; then
+              echo "[ERROR] missing/incorrect provenance attestation predicateType: '${PREDICATE_TYPE:-<empty>}'"
+              exit 1
+            fi
+
+            echo "Waiting for provenance attestation predicateType (${i}/20)..."
+            sleep 3
+          done
+
+          echo "✓ npm publish verification passed"
+

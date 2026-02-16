@@ -74,7 +74,8 @@ jobs:
                 file.filename === "AGENTS.md" ||
                 file.filename.startsWith("docs/") ||
                 file.filename.startsWith(".codex/") ||
-                file.filename.startsWith(".opencode/")
+                file.filename.startsWith(".opencode/") ||
+                file.filename.startsWith("packages/opencode-excalidraw/")
             );
             core.setOutput("run_tests", docOnly ? "false" : "true");
             if (docOnly) {
