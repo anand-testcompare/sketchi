@@ -1,7 +1,7 @@
 /**
  * Scenarios (Issue #95):
  * - Parse Excalidraw+ link-share URLs (`/l/<workspace>/<scene>`) via export service.
- * - Parse Excalidraw+ readonly URLs (`/readonly/<token>`) by extracting __NEXT_DATA__.
+ * - Parse Excalidraw+ readonly URLs (`/readonly/<token>`) via readonly HTML metadata + export service.
  * - Surface permission metadata derived from `linkSharing` (bitfield).
  *
  * Notes:
@@ -47,7 +47,7 @@ describe("Excalidraw+ URL parsing", () => {
     expect(result.payload.appState).toBeTruthy();
   }, 20_000);
 
-  test("parses /readonly/<token> via __NEXT_DATA__", async () => {
+  test("parses /readonly/<token> via readonly metadata + export service", async () => {
     const result = await parseExcalidrawUrl(
       "https://link.excalidraw.com/readonly/QSslwW7dHXMgR8eNDfTW"
     );
