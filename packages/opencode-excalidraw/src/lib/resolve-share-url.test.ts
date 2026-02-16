@@ -37,7 +37,7 @@ describe("resolveExcalidrawFromShareUrl", () => {
 
     const server = Bun.serve({
       port: 0,
-      fetch(request) {
+      fetch(request: Request) {
         seen.url = request.url;
         seen.headers = request.headers;
         seen.method = request.method;
