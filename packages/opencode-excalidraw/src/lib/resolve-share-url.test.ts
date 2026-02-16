@@ -31,29 +31,38 @@ describe("resolveExcalidrawFromShareUrl", () => {
   test("uses Sketchi /api/diagrams/parse and forwards x-trace-id", async () => {
     const seen: {
       url?: string;
-      headers?: RequestInit["headers"];
+      headers?: Headers;
       method?: string;
     } = {};
 
-    const result = await resolveExcalidrawFromShareUrl({
-      shareUrl: "https://excalidraw.com/#json=abc,def",
-      apiBase: "https://preview.sketchi.app",
-      traceId: "trace-2",
-      deps: {
-        fetchJson: <T>(url: string, options: RequestInit) => {
-          seen.url = url;
-          seen.headers = options.headers;
-          seen.method = options.method;
-          return { elements: [{ id: "b" }], appState: { theme: "light" } } as T;
-        },
+    const server = Bun.serve({
+      port: 0,
+      fetch(request) {
+        seen.url = request.url;
+        seen.headers = request.headers;
+        seen.method = request.method;
+        return Response.json({
+          elements: [{ id: "b" }],
+          appState: { theme: "light" },
+        });
       },
     });
 
-    expect(seen.method).toBe("GET");
-    expect(seen.url).toContain("/api/diagrams/parse?");
-    expect(seen.url).toContain("shareUrl=");
-    expect(readHeader(seen.headers, "x-trace-id")).toBe("trace-2");
-    expect(result.elements).toEqual([{ id: "b" }]);
-    expect(result.appState).toEqual({ theme: "light" });
+    try {
+      const result = await resolveExcalidrawFromShareUrl({
+        shareUrl: "https://excalidraw.com/#json=abc,def",
+        apiBase: `http://127.0.0.1:${server.port}`,
+        traceId: "trace-2",
+      });
+
+      expect(seen.method).toBe("GET");
+      expect(seen.url).toContain("/api/diagrams/parse?");
+      expect(seen.url).toContain("shareUrl=");
+      expect(readHeader(seen.headers, "x-trace-id")).toBe("trace-2");
+      expect(result.elements).toEqual([{ id: "b" }]);
+      expect(result.appState).toEqual({ theme: "light" });
+    } finally {
+      server.stop(true);
+    }
   });
 });

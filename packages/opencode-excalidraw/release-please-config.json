@@ -5,7 +5,7 @@
       "release-type": "node",
       "package-name": "@sketchi-app/opencode-excalidraw",
       "component": "opencode-excalidraw",
-      "changelog-path": "packages/opencode-excalidraw/CHANGELOG.md"
+      "changelog-path": "CHANGELOG.md"
     }
   },
   "include-v-in-tag": true,

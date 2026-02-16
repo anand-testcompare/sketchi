@@ -168,8 +168,10 @@ function extractTraceId(payload: Record<string, unknown>): string | undefined {
     payload.traceID,
     payload.trace_id,
     properties?.traceId,
+    properties?.traceID,
     properties?.trace_id,
     info?.traceId,
+    info?.traceID,
     info?.trace_id,
   ];
   for (const candidate of candidates) {
