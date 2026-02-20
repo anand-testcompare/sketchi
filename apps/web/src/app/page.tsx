@@ -9,6 +9,7 @@ interface FeatureCardProps {
   title: string;
   description: string;
   status: FeatureStatus;
+  statusLabel?: string;
   href?: string;
   externalHref?: string;
   icon: React.ReactNode;
@@ -19,7 +20,21 @@ interface FeatureCardProps {
   };
 }
 
-function StatusBadge({ status }: { status: FeatureStatus }) {
+function StatusBadge({
+  status,
+  label,
+}: {
+  status: FeatureStatus;
+  label?: string;
+}) {
+  if (label) {
+    return (
+      <span className="inline-flex items-center rounded-full bg-secondary px-2.5 py-0.5 font-medium text-secondary-foreground text-xs">
+        {label}
+      </span>
+    );
+  }
+
   if (status === "available") {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 font-medium text-primary text-xs dark:bg-primary/20">
@@ -48,6 +63,7 @@ function FeatureCardContent({
   title,
   description,
   status,
+  statusLabel,
   icon,
   screenshot,
   isClickable,
@@ -85,7 +101,7 @@ function FeatureCardContent({
             </div>
             <h2 className="font-medium text-base tracking-tight">{title}</h2>
           </div>
-          <StatusBadge status={status} />
+          <StatusBadge label={statusLabel} status={status} />
         </div>
 
         <p className="flex-1 text-muted-foreground text-sm leading-relaxed">
@@ -185,9 +201,9 @@ export default function Home() {
       title: "OpenCode Plugin",
       description:
         "Bi-directional human-in-the-loop diagramming for AI agents. Create, modify, and grade diagrams directly from your development workflow.",
-      status: "alpha",
-      externalHref:
-        "https://github.com/anand-testcompare/sketchi#opencode-plugin",
+      status: "available",
+      statusLabel: "v0.0.2",
+      href: "/opencode",
       icon: <Terminal className="size-5" />,
       screenshot: {
         light: "/screenshots/opencode-preview-white.png",

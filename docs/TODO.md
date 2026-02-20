@@ -84,7 +84,7 @@
 - [x] Implement `diagram_restructure` tool
 - [x] Implement `diagram_to_png` tool
 - [x] Implement `diagram_grade` tool
-- [ ] Publish to npm as `@sketchi-app/opencode-excalidraw`
+- [x] Publish to npm as `@sketchi-app/opencode-excalidraw`
 - [x] Add local PNG exporter: `packages/opencode-excalidraw/src/lib/render.ts`
 
 ## Phase 3: Tech Stack Schemas
