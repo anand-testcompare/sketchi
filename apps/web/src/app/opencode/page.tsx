@@ -1,5 +1,6 @@
 "use client";
 
+import { Check, Copy } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 
@@ -11,9 +12,26 @@ const installCommand = "opencode";
 export default function OpenCodeDocsPage() {
   const [typedPlugin, setTypedPlugin] = useState("");
   const [typedInstall, setTypedInstall] = useState("");
-  const [version, setVersion] = useState("0.0.3");
+  const [version, setVersion] = useState("latest");
+  const [isHovering, setIsHovering] = useState(false);
+  const [copied, setCopied] = useState(false);
 
+  // Default to "latest" since that dynamically ensures they have the newest plugin version,
+  // preventing them from being stuck on an outdated hardcoded tag.
   const pluginLine = `    "@sketchi-app/opencode-excalidraw@${version}"`;
+
+  const fullJsonConfig = `{
+  "$schema": "https://opencode.ai/config.json",
+  "plugins": [
+    "@sketchi-app/opencode-excalidraw@${version}"
+  ]
+}`;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(fullJsonConfig);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   useEffect(() => {
     fetch("https://registry.npmjs.org/@sketchi-app/opencode-excalidraw/latest")
@@ -27,6 +45,9 @@ export default function OpenCodeDocsPage() {
   }, []);
 
   useEffect(() => {
+    if (isHovering) {
+      return;
+    }
     let timeoutId: ReturnType<typeof setTimeout>;
 
     if (typedPlugin.length < pluginLine.length) {
@@ -52,7 +73,7 @@ export default function OpenCodeDocsPage() {
       setTypedInstall("");
     }, 4500);
     return () => clearTimeout(timeoutId);
-  }, [typedPlugin, typedInstall, pluginLine]);
+  }, [typedPlugin, typedInstall, pluginLine, isHovering]);
 
   const showImage = typedInstall.length === installCommand.length;
 
@@ -128,18 +149,44 @@ export default function OpenCodeDocsPage() {
 
         <div className="relative z-10 grid gap-6 md:grid-cols-[1fr_1.2fr] lg:gap-10">
           <div className="flex flex-col gap-4">
-            <div className="overflow-hidden rounded-2xl border-2 border-zinc-200/50 bg-[#1e1e1e] shadow-lg dark:border-white/10 dark:bg-[#0d0d0d]">
-              <div className="flex items-center gap-1.5 border-white/10 border-b bg-white/5 px-4 py-2.5">
-                <div className="size-3 rounded-full bg-[#ff5f56]" />
-                <div className="size-3 rounded-full bg-[#ffbd2e]" />
-                <div className="size-3 rounded-full bg-[#27c93f]" />
-                <span className="ml-2 font-medium text-white/50 text-xs">
-                  opencode.jsonc
-                </span>
+            <section
+              aria-label="Animated code block"
+              className="overflow-hidden rounded-2xl border-2 border-zinc-200/50 bg-[#1e1e1e] shadow-lg transition-colors dark:border-white/10 dark:bg-[#0d0d0d]"
+              onMouseEnter={() => setIsHovering(true)}
+              onMouseLeave={() => setIsHovering(false)}
+            >
+              <div className="flex items-center justify-between border-white/10 border-b bg-white/5 px-4 py-2.5">
+                <div className="flex items-center gap-1.5">
+                  <div className="size-3 rounded-full bg-[#ff5f56]" />
+                  <div className="size-3 rounded-full bg-[#ffbd2e]" />
+                  <div className="size-3 rounded-full bg-[#27c93f]" />
+                  <span className="ml-2 font-medium text-white/50 text-xs">
+                    opencode.jsonc
+                  </span>
+                </div>
+                <button
+                  aria-label="Copy config"
+                  className="flex items-center gap-1.5 rounded bg-white/10 px-2 py-1 text-white/70 text-xs transition-colors hover:bg-white/20 hover:text-white"
+                  onClick={handleCopy}
+                  type="button"
+                >
+                  {copied ? (
+                    <Check className="size-3.5" />
+                  ) : (
+                    <Copy className="size-3.5" />
+                  )}
+                  {copied ? "Copied" : "Copy"}
+                </button>
               </div>
               <div className="p-5">
                 <code className="block whitespace-pre font-mono text-sm text-zinc-300 leading-7">
                   <span className="text-[#569cd6]">{"{\n"}</span>
+                  <span className="text-[#9cdcfe]">{'  "$schema"'}</span>
+                  <span className="text-zinc-300">{": "}</span>
+                  <span className="text-[#ce9178]">
+                    {'"https://opencode.ai/config.json"'}
+                  </span>
+                  <span className="text-zinc-300">{",\n"}</span>
                   <span className="text-[#9cdcfe]">{'  "plugins"'}</span>
                   <span className="text-zinc-300">{": [\n"}</span>
                   <span className="text-[#ce9178]">{typedPlugin}</span>
@@ -150,7 +197,7 @@ export default function OpenCodeDocsPage() {
                   <span className="text-[#569cd6]">{"}"}</span>
                 </code>
               </div>
-            </div>
+            </section>
 
             <div className="overflow-hidden rounded-2xl border-2 border-zinc-200/50 bg-[#1e1e1e] shadow-lg dark:border-white/10 dark:bg-[#0d0d0d]">
               <div className="flex items-center border-white/10 border-b bg-white/5 px-4 py-2.5">
