@@ -7,7 +7,7 @@ const npmUrl = "https://www.npmjs.com/package/@sketchi-app/opencode-excalidraw";
 const githubUrl =
   "https://github.com/anand-testcompare/sketchi/tree/main/packages/opencode-excalidraw";
 const pluginLine = '    "@sketchi-app/opencode-excalidraw@latest"';
-const installCommand = "npx opencode";
+const installCommand = "opencode";
 
 export default function OpenCodeDocsPage() {
   const [typedPlugin, setTypedPlugin] = useState("");
