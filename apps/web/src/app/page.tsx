@@ -27,9 +27,14 @@ function StatusBadge({
   status: FeatureStatus;
   label?: string;
 }) {
+  const badgeBaseClass =
+    "inline-flex items-center gap-1.5 px-2.5 py-0.5 font-medium text-xs border border-current [border-radius:255px_15px_225px_15px/15px_225px_15px_255px] shadow-sm";
+
   if (label) {
     return (
-      <span className="inline-flex items-center rounded-full bg-secondary px-2.5 py-0.5 font-medium text-secondary-foreground text-xs">
+      <span
+        className={`${badgeBaseClass} bg-secondary text-secondary-foreground`}
+      >
         {label}
       </span>
     );
@@ -37,7 +42,9 @@ function StatusBadge({
 
   if (status === "available") {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 font-medium text-primary text-xs dark:bg-primary/20">
+      <span
+        className={`${badgeBaseClass} bg-primary/10 text-primary dark:bg-primary/20`}
+      >
         <span className="size-1.5 rounded-full bg-primary" />
         Available
       </span>
@@ -45,14 +52,18 @@ function StatusBadge({
   }
   if (status === "alpha") {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-chart-3/15 px-2.5 py-0.5 font-medium text-chart-3 text-xs dark:bg-chart-3/25">
+      <span
+        className={`${badgeBaseClass} bg-chart-3/15 text-chart-3 dark:bg-chart-3/25`}
+      >
         <span className="size-1.5 rounded-full bg-chart-3" />
         Alpha
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 font-medium text-muted-foreground text-xs">
+    <span
+      className={`${badgeBaseClass} border-muted-foreground/30 bg-muted text-muted-foreground`}
+    >
       <span className="size-1.5 rounded-full bg-muted-foreground/50" />
       Coming soon
     </span>
@@ -110,7 +121,7 @@ function FeatureCardContent({
 
         {isClickable && (
           <div className="flex items-center gap-2 pt-1">
-            <span className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 font-[family-name:var(--font-caveat)] text-lg text-primary-foreground shadow-sm transition-all group-hover:gap-3 group-hover:bg-primary/90 group-hover:shadow-md">
+            <span className="inline-flex items-center gap-2 border-2 border-primary bg-primary px-4 py-1.5 font-[family-name:var(--font-caveat)] text-lg text-primary-foreground shadow-sm transition-all [border-radius:255px_15px_225px_15px/15px_225px_15px_255px] group-hover:-rotate-2 group-hover:gap-3 group-hover:bg-primary/90 group-hover:shadow-[3px_3px_0px_0px_currentColor]">
               {isExternal ? "Learn more" : "Open"}
               {isExternal && <ArrowUpRight className="size-4" />}
             </span>
@@ -119,7 +130,7 @@ function FeatureCardContent({
 
         {status === "coming-soon" && (
           <div className="flex items-center gap-2 pt-1">
-            <span className="inline-flex items-center gap-2 rounded-lg bg-muted px-4 py-2.5 font-[family-name:var(--font-caveat)] text-lg text-muted-foreground">
+            <span className="inline-flex items-center gap-2 border-2 border-muted-foreground/20 bg-muted px-4 py-1.5 font-[family-name:var(--font-caveat)] text-lg text-muted-foreground [border-radius:255px_15px_225px_15px/15px_225px_15px_255px]">
               Coming soon
             </span>
           </div>
@@ -134,9 +145,9 @@ function FeatureCard(props: FeatureCardProps) {
   const isClickable = status !== "coming-soon" && (href || externalHref);
   const isExternal = !!externalHref;
 
-  const cardClassName = `group relative flex flex-col overflow-hidden rounded-xl border bg-card transition-all duration-300 ${
+  const cardClassName = `group relative flex flex-col overflow-hidden border-2 bg-card transition-all duration-300 [border-radius:255px_15px_225px_15px/15px_225px_15px_255px] ${
     isClickable
-      ? "cursor-pointer hover:-translate-y-1 hover:border-foreground/20 hover:shadow-xl hover:shadow-foreground/5"
+      ? "cursor-pointer hover:-translate-y-1 hover:-rotate-1 hover:border-foreground/30 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] dark:hover:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.05)]"
       : "border-dashed opacity-75"
   }`;
 
@@ -247,9 +258,6 @@ export default function Home() {
         </div>
 
         <div className="relative">
-          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-background to-transparent" />
-          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-background to-transparent" />
-
           <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2">
             {[
               {
@@ -270,7 +278,7 @@ export default function Home() {
               },
             ].map((shot) => (
               <div
-                className="relative h-[220px] w-[360px] shrink-0 snap-start overflow-hidden rounded-xl border bg-card shadow-sm"
+                className="relative h-[220px] w-[360px] shrink-0 snap-start overflow-hidden border-2 bg-card shadow-sm [border-radius:255px_15px_225px_15px/15px_225px_15px_255px]"
                 key={shot.src}
               >
                 <Image
