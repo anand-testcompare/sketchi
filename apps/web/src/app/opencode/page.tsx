@@ -1,28 +1,13 @@
 "use client";
 
-import { Github } from "lucide-react";
-import type { SVGProps } from "react";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 
 const npmUrl = "https://www.npmjs.com/package/@sketchi-app/opencode-excalidraw";
 const githubUrl =
   "https://github.com/anand-testcompare/sketchi/tree/main/packages/opencode-excalidraw";
-const pluginLine = '    "@sketchi-app/opencode-excalidraw"';
-const installCommand = "npm i @sketchi-app/opencode-excalidraw";
-
-function NpmIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="currentColor"
-      viewBox="0 0 24 24"
-      xmlns="http://www.w3.org/2000/svg"
-      {...props}
-    >
-      <path d="M2 6.5v11h20v-11H2Zm16.5 2H20v7h-1.5v-7ZM4 8.5h4v7H6.5v-5H5.5v5H4v-7Zm5 0h4v7h-1.5v-5h-1v5H9v-7Zm5 0h3.5v2h-2v5H14v-7Z" />
-    </svg>
-  );
-}
+const pluginLine = '    "@sketchi-app/opencode-excalidraw@latest"';
+const installCommand = "opencode";
 
 export default function OpenCodeDocsPage() {
   const [typedPlugin, setTypedPlugin] = useState("");
@@ -64,7 +49,8 @@ export default function OpenCodeDocsPage() {
               OpenCode plugin docs
             </h1>
             <p className="max-w-xl text-muted-foreground text-sm">
-              Add one plugin line in <code>opencode.jsonc</code>, then install.
+              Add one plugin line in <code>opencode.jsonc</code>, then run
+              OpenCode.
             </p>
           </div>
           <span className="rounded-full bg-secondary px-3 py-1 font-medium text-secondary-foreground text-xs">
@@ -72,24 +58,47 @@ export default function OpenCodeDocsPage() {
           </span>
         </div>
 
-        <div className="mb-5 flex items-center gap-2">
+        <div className="mb-5 flex flex-wrap items-center gap-4">
           <a
             aria-label="Open npm package"
-            className="inline-flex size-9 items-center justify-center rounded-lg border bg-background text-foreground/80 transition-colors hover:text-foreground"
+            className="group flex items-center gap-2 rounded-xl border-2 border-transparent bg-muted/20 px-4 py-2 transition-all hover:-rotate-2 hover:border-foreground/10 hover:bg-muted/40"
             href={npmUrl}
             rel="noopener noreferrer"
             target="_blank"
           >
-            <NpmIcon className="size-5" />
+            <div className="relative h-8 w-16">
+              <Image
+                alt="NPM"
+                className="object-contain opacity-80 transition-opacity group-hover:opacity-100"
+                fill
+                src="/icons/npm-text-svg.svg"
+              />
+            </div>
           </a>
           <a
             aria-label="Open GitHub repository"
-            className="inline-flex size-9 items-center justify-center rounded-lg border bg-background text-foreground/80 transition-colors hover:text-foreground"
+            className="group flex items-center gap-2 rounded-xl border-2 border-transparent bg-muted/20 px-4 py-2 transition-all hover:rotate-2 hover:border-foreground/10 hover:bg-muted/40"
             href={githubUrl}
             rel="noopener noreferrer"
             target="_blank"
           >
-            <Github className="size-5" />
+            <div className="relative h-8 w-8">
+              <Image
+                alt="GitHub"
+                className="object-contain opacity-80 transition-opacity group-hover:opacity-100 dark:hidden"
+                fill
+                src="/icons/github-svg.svg"
+              />
+              <Image
+                alt="GitHub Dark"
+                className="hidden object-contain opacity-80 transition-opacity group-hover:opacity-100 dark:block"
+                fill
+                src="/icons/github-dark-svg.svg"
+              />
+            </div>
+            <span className="font-[family-name:var(--font-caveat)] text-foreground/80 text-lg group-hover:text-foreground">
+              GitHub
+            </span>
           </a>
         </div>
 
