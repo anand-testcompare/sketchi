@@ -18,7 +18,7 @@ const screenshots: Screenshot[] = [
     alt: "Palantir Foundry custom icon set",
   },
   {
-    src: "/screenshots/excalidraw-w-icons-white.png",
+    src: "/screenshots/web-based-inline-generator-god-hates-js.png",
     alt: "Excalidraw diagram with icons",
   },
   {

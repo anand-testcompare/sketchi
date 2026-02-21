@@ -204,8 +204,7 @@ export default function Home() {
       href: "/diagrams",
       icon: <Sparkles className="size-5" />,
       screenshot: {
-        light: "/screenshots/excalidraw-w-icons-white.png",
-        dark: "/screenshots/excalidraw-w-icons.png",
+        light: "/screenshots/web-based-inline-generator-god-hates-js.png",
         alt: "AI-generated Excalidraw diagram",
       },
     },
