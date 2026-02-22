@@ -5,6 +5,7 @@ import { useState } from "react";
 
 interface Screenshot {
   alt: string;
+  darkSrc?: string;
   src: string;
 }
 
@@ -22,6 +23,7 @@ const screenshots: Screenshot[] = [
     alt: "Excalidraw diagram with icons",
   },
   {
+    darkSrc: "/screenshots/opencode-preview-dark.png",
     src: "/screenshots/opencode-preview-white.png",
     alt: "OpenCode plugin preview",
   },
@@ -37,12 +39,24 @@ export function ScreenshotViewer() {
         <div className="relative h-full w-full overflow-hidden rounded-2xl bg-muted/10 sm:rounded-[1.5rem]">
           <Image
             alt={screenshots[activeIndex].alt}
-            className="object-contain transition-transform duration-700 hover:scale-[1.03]"
+            className={`object-contain transition-transform duration-700 hover:scale-[1.03] ${
+              screenshots[activeIndex].darkSrc ? "dark:hidden" : ""
+            }`}
             fill
             priority
             sizes="(max-width: 1200px) 100vw, 1200px"
             src={screenshots[activeIndex].src}
           />
+          {screenshots[activeIndex].darkSrc && (
+            <Image
+              alt={screenshots[activeIndex].alt}
+              className="hidden object-contain transition-transform duration-700 hover:scale-[1.03] dark:block"
+              fill
+              priority
+              sizes="(max-width: 1200px) 100vw, 1200px"
+              src={screenshots[activeIndex].darkSrc}
+            />
+          )}
         </div>
       </div>
 
@@ -65,11 +79,20 @@ export function ScreenshotViewer() {
               <div className="absolute inset-0 bg-muted/10">
                 <Image
                   alt={shot.alt}
-                  className="object-contain p-1 sm:p-2"
+                  className={`object-contain p-1 sm:p-2 ${shot.darkSrc ? "dark:hidden" : ""}`}
                   fill
                   sizes="(max-width: 640px) 25vw, 300px"
                   src={shot.src}
                 />
+                {shot.darkSrc && (
+                  <Image
+                    alt={shot.alt}
+                    className="hidden object-contain p-1 sm:p-2 dark:block"
+                    fill
+                    sizes="(max-width: 640px) 25vw, 300px"
+                    src={shot.darkSrc}
+                  />
+                )}
               </div>
             </button>
           );

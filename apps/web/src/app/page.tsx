@@ -217,6 +217,7 @@ export default function Home() {
       href: "/opencode",
       icon: <Terminal className="size-5" />,
       screenshot: {
+        dark: "/screenshots/opencode-preview-dark.png",
         light: "/screenshots/opencode-preview-white.png",
         alt: "OpenCode plugin preview",
       },

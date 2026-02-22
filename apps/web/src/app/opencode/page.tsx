@@ -13,7 +13,6 @@ export default function OpenCodeDocsPage() {
   const [typedPlugin, setTypedPlugin] = useState("");
   const [typedInstall, setTypedInstall] = useState("");
   const [version, setVersion] = useState("latest");
-  const [isHovering, setIsHovering] = useState(false);
   const [copied, setCopied] = useState(false);
 
   // Default to "latest" since that dynamically ensures they have the newest plugin version,
@@ -45,9 +44,6 @@ export default function OpenCodeDocsPage() {
   }, []);
 
   useEffect(() => {
-    if (isHovering) {
-      return;
-    }
     let timeoutId: ReturnType<typeof setTimeout>;
 
     if (typedPlugin.length < pluginLine.length) {
@@ -73,7 +69,7 @@ export default function OpenCodeDocsPage() {
       setTypedInstall("");
     }, 4500);
     return () => clearTimeout(timeoutId);
-  }, [typedPlugin, typedInstall, pluginLine, isHovering]);
+  }, [typedPlugin, typedInstall, pluginLine]);
 
   const showImage = typedInstall.length === installCommand.length;
 
@@ -152,8 +148,6 @@ export default function OpenCodeDocsPage() {
             <section
               aria-label="Animated code block"
               className="overflow-hidden rounded-2xl border-2 border-zinc-200/50 bg-[#1e1e1e] shadow-lg transition-colors dark:border-white/10 dark:bg-[#0d0d0d]"
-              onMouseEnter={() => setIsHovering(true)}
-              onMouseLeave={() => setIsHovering(false)}
             >
               <div className="flex items-center justify-between border-white/10 border-b bg-white/5 px-4 py-2.5">
                 <div className="flex items-center gap-1.5">
@@ -238,9 +232,15 @@ export default function OpenCodeDocsPage() {
               <div className="relative h-full w-full overflow-hidden rounded-xl border border-border/50 bg-background shadow-2xl [border-radius:255px_15px_225px_15px/15px_225px_15px_255px]">
                 <Image
                   alt="Generated Excalidraw Diagram"
-                  className="object-cover object-left-top"
+                  className="object-cover object-left-top dark:hidden"
                   fill
                   src="/screenshots/opencode-preview-white.png"
+                />
+                <Image
+                  alt="Generated Excalidraw Diagram"
+                  className="hidden object-cover object-left-top dark:block"
+                  fill
+                  src="/screenshots/opencode-preview-dark.png"
                 />
               </div>
             </div>
