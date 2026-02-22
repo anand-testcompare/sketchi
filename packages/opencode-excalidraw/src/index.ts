@@ -610,9 +610,8 @@ export const SketchiPlugin: Plugin = (input) => {
         },
       }),
     },
-    "experimental.chat.system.transform": (_input, output) => {
-      appendSketchiDiagramSystemHints(output.system);
-    },
+    "experimental.chat.system.transform": (_input, output) =>
+      Promise.resolve(appendSketchiDiagramSystemHints(output.system)),
   });
 };
 
