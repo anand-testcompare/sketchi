@@ -68,7 +68,7 @@
     "titleBar.inactiveBackground": "#cba6f799",
     "titleBar.inactiveForeground": "#15202b99",
     "tab.activeBorder": "#e6d5fb",
-    "activityBarBadge.background": "#985d9e",
+    "activityBarBadge.background": "#e97416",
     "activityBarBadge.foreground": "#15202b"
   },
   "peacock.color": "#cba6f7"

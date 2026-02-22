@@ -24,7 +24,7 @@ const screenshots: Screenshot[] = [
   },
   {
     darkSrc: "/screenshots/opencode-preview-dark.png",
-    src: "/screenshots/opencode-preview-white.png",
+    src: "/screenshots/opencode-preview-light.png",
     alt: "OpenCode plugin preview",
   },
 ];
