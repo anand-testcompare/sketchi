@@ -71,6 +71,12 @@
   <em>Icon Library Generator - Build and export Excalidraw libraries</em>
 </p>
 
+<p align="center">
+  <img src="docs/screenshots/web-based-inline-generator-god-hates-js.png" alt="AI Diagram Generator" width="800" />
+  <br />
+  <em>AI Diagram Generator - Convert natural language to flowcharts and diagrams</em>
+</p>
+
 ---
 
 ## Table of Contents
