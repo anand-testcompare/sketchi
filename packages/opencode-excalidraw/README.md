@@ -8,7 +8,7 @@ OpenCode plugin for generating and manipulating Excalidraw diagrams via Sketchi.
 
 ```jsonc
 {
-  "plugins": ["@sketchi-app/opencode-excalidraw"]
+  "plugin": ["@sketchi-app/opencode-excalidraw"]
 }
 ```
 
