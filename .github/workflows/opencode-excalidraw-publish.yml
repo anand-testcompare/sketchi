@@ -15,7 +15,7 @@ on:
 
 permissions:
   id-token: write
-  contents: read
+  contents: write
 
 jobs:
   publish:
@@ -200,3 +200,81 @@ jobs:
           done
 
           echo "✓ npm publish verification passed"
+
+      - name: Create linked artifact metadata record
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          NAME="$(node -p 'require("./packages/opencode-excalidraw/package.json").name')"
+          VERSION="$(node -p 'require("./packages/opencode-excalidraw/package.json").version')"
+          OWNER="${GITHUB_REPOSITORY_OWNER}"
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+
+          VIEW_JSON="$(npm view "${NAME}@${VERSION}" --json)"
+          TARBALL_URL="$({
+            printf '%s' "$VIEW_JSON" | node -e '
+              const fs = require("fs");
+              const s = fs.readFileSync(0, "utf8").trim();
+              if (!s) process.exit(0);
+              const j = JSON.parse(s);
+              process.stdout.write(String(j.dist?.tarball ?? ""));
+            '
+          })"
+
+          if [ -z "$TARBALL_URL" ]; then
+            echo "[ERROR] missing npm tarball URL for ${NAME}@${VERSION}"
+            exit 1
+          fi
+
+          TMP_TGZ="$(mktemp -t opencode-excalidraw-XXXXXX.tgz)"
+          trap 'rm -f "$TMP_TGZ"' EXIT
+          curl -fsSL "$TARBALL_URL" -o "$TMP_TGZ"
+          SHA256="$(shasum -a 256 "$TMP_TGZ" | awk '{print $1}')"
+          DIGEST="sha256:${SHA256}"
+
+          echo "Creating storage record for digest ${DIGEST}"
+          gh api -X POST "orgs/${OWNER}/artifacts/metadata/storage-record" \
+            -f name="${NAME}" \
+            -f version="${VERSION}" \
+            -f digest="${DIGEST}" \
+            -f artifact_url="${TARBALL_URL}" \
+            -f registry_url="https://registry.npmjs.org" \
+            -f repository="${NAME}" \
+            -f github_repository="${REPO_NAME}" \
+            > /tmp/opencode-excalidraw-storage-record.json
+
+          RECORD_ID="$({
+            node -e '
+              const fs = require("fs");
+              const j = JSON.parse(fs.readFileSync("/tmp/opencode-excalidraw-storage-record.json", "utf8"));
+              const id = j.storage_records?.[0]?.id;
+              if (id !== undefined && id !== null) process.stdout.write(String(id));
+            '
+          })"
+
+          gh api "orgs/${OWNER}/artifacts/${DIGEST}/metadata/storage-records" >/tmp/opencode-excalidraw-storage-records.json
+          RECORD_COUNT="$({
+            node -e '
+              const fs = require("fs");
+              const j = JSON.parse(fs.readFileSync("/tmp/opencode-excalidraw-storage-records.json", "utf8"));
+              const count = Number(j.total_count ?? 0);
+              process.stdout.write(String(count));
+            '
+          })"
+
+          if [ "${RECORD_COUNT}" -lt 1 ]; then
+            echo "[ERROR] linked artifact storage record not found for ${DIGEST}"
+            exit 1
+          fi
+
+          {
+            echo "## OpenCode Excalidraw Artifact Metadata"
+            echo "- Package: \\`${NAME}@${VERSION}\\`"
+            echo "- Digest: \\`${DIGEST}\\`"
+            echo "- Storage record id: \\`${RECORD_ID:-unknown}\\`"
+            echo "- Tarball: ${TARBALL_URL}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "✓ linked artifact storage record created"

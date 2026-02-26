@@ -50,4 +50,4 @@ Optional env override:
 ## Links
 
 - npm: https://www.npmjs.com/package/@sketchi-app/opencode-excalidraw
-- GitHub: https://github.com/anand-testcompare/sketchi/tree/main/packages/opencode-excalidraw
+- GitHub: https://github.com/shpitdev/sketchi/tree/main/packages/opencode-excalidraw
