@@ -18,7 +18,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/anand-testcompare/sketchi.git"
+    "url": "git+https://github.com/shpitdev/sketchi.git"
   },
   "publishConfig": {
     "access": "public",
