@@ -254,20 +254,33 @@ jobs:
             '
           })"
 
-          gh api "orgs/${OWNER}/artifacts/${DIGEST}/metadata/storage-records" >/tmp/opencode-excalidraw-storage-records.json
-          RECORD_COUNT="$({
-            node -e '
-              const fs = require("fs");
-              const j = JSON.parse(fs.readFileSync("/tmp/opencode-excalidraw-storage-records.json", "utf8"));
-              const count = Number(j.total_count ?? 0);
-              process.stdout.write(String(count));
-            '
-          })"
+          RECORD_COUNT="0"
+          for i in $(seq 1 20); do
+            if gh api "orgs/${OWNER}/artifacts/${DIGEST}/metadata/storage-records" >/tmp/opencode-excalidraw-storage-records.json 2>/tmp/opencode-excalidraw-storage-records.err; then
+              RECORD_COUNT="$({
+                node -e '
+                  const fs = require("fs");
+                  const j = JSON.parse(fs.readFileSync("/tmp/opencode-excalidraw-storage-records.json", "utf8"));
+                  const count = Number(j.total_count ?? 0);
+                  process.stdout.write(String(count));
+                '
+              })"
+              if [ "${RECORD_COUNT}" -ge 1 ]; then
+                break
+              fi
+            fi
 
-          if [ "${RECORD_COUNT}" -lt 1 ]; then
-            echo "[ERROR] linked artifact storage record not found for ${DIGEST}"
-            exit 1
-          fi
+            if [ "$i" -eq 20 ]; then
+              echo "[ERROR] linked artifact storage record not found for ${DIGEST}"
+              if [ -s /tmp/opencode-excalidraw-storage-records.err ]; then
+                cat /tmp/opencode-excalidraw-storage-records.err
+              fi
+              exit 1
+            fi
+
+            echo "Waiting for linked artifact storage record indexing (${i}/20)..."
+            sleep 3
+          done
 
           {
             echo "## OpenCode Excalidraw Artifact Metadata"
