@@ -3,12 +3,30 @@ import {
   getSignUpUrl,
   withAuth,
 } from "@workos-inc/authkit-nextjs";
+import { headers } from "next/headers";
 import Link from "next/link";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface SignInPageProps {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}
+
+async function getRequestOrigin(): Promise<string | undefined> {
+  const requestHeaders = await headers();
+  const host =
+    requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
+  if (!host) {
+    return undefined;
+  }
+
+  const proto =
+    requestHeaders.get("x-forwarded-proto") ??
+    (host.startsWith("localhost") || host.startsWith("127.0.0.1")
+      ? "http"
+      : "https");
+
+  return `${proto}://${host}`;
 }
 
 function getSafeReturnPathname(raw: string | undefined): string | undefined {
@@ -35,6 +53,8 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   const state = returnPathname
     ? Buffer.from(JSON.stringify({ returnPathname }), "utf8").toString("base64")
     : undefined;
+  const requestOrigin = await getRequestOrigin();
+  const redirectUri = requestOrigin ? `${requestOrigin}/callback` : undefined;
 
   if (user) {
     const destination = returnPathname ?? "/";
@@ -61,8 +81,8 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   }
 
   const [signInUrl, signUpUrl] = await Promise.all([
-    getSignInUrl({ state }),
-    getSignUpUrl({ state }),
+    getSignInUrl({ state, redirectUri }),
+    getSignUpUrl({ state, redirectUri }),
   ]);
 
   return (
