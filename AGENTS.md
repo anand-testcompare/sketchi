@@ -70,3 +70,7 @@ Guidelines:
 2. Add scenario comment at top
 3. Confirm approach first
 4. Run locally before commit; preview after deploy
+
+## Memory
+- Use .memory/ directory to store any temporary artifacts.
+- This directory is gitignored, so it will not be committed to the repository, but it is intentionally configured to be visible to codex.
