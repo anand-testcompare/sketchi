@@ -2,6 +2,7 @@ import { v } from "convex/values";
 
 import type { DatabaseReader } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
+import { ensureViewerUser, getViewerWithUser } from "./lib/users";
 
 const MAX_SCENE_BYTES = 900_000;
 
@@ -56,11 +57,13 @@ function measureSceneBytes(scene: {
 export const create = mutation({
   args: {},
   handler: async (ctx) => {
+    const { user } = await ensureViewerUser(ctx);
     const sessionId = await getUniqueSessionId(ctx);
     const now = Date.now();
 
     await ctx.db.insert("diagramSessions", {
       sessionId,
+      ownerUserId: user._id,
       latestScene: undefined,
       latestSceneVersion: 0,
       createdAt: now,
@@ -74,6 +77,11 @@ export const create = mutation({
 export const get = query({
   args: { sessionId: v.string() },
   handler: async (ctx, { sessionId }) => {
+    const { user, isAdmin } = await getViewerWithUser(ctx);
+    if (!user) {
+      throw new Error("Unauthorized");
+    }
+
     const session = await ctx.db
       .query("diagramSessions")
       .withIndex("by_sessionId", (q) => q.eq("sessionId", sessionId))
@@ -83,8 +91,13 @@ export const get = query({
       return null;
     }
 
+    if (session.ownerUserId && session.ownerUserId !== user._id && !isAdmin) {
+      throw new Error("Forbidden");
+    }
+
     return {
       sessionId: session.sessionId,
+      ownerUserId: session.ownerUserId ?? null,
       latestScene: session.latestScene ?? null,
       latestSceneVersion: session.latestSceneVersion,
       createdAt: session.createdAt,
@@ -101,6 +114,8 @@ export const setLatestScene = mutation({
     appState: v.record(v.string(), v.any()),
   },
   handler: async (ctx, { sessionId, expectedVersion, elements, appState }) => {
+    const { user, isAdmin } = await ensureViewerUser(ctx);
+
     const session = await ctx.db
       .query("diagramSessions")
       .withIndex("by_sessionId", (q) => q.eq("sessionId", sessionId))
@@ -108,6 +123,10 @@ export const setLatestScene = mutation({
 
     if (!session) {
       throw new Error("Session not found");
+    }
+
+    if (session.ownerUserId && session.ownerUserId !== user._id && !isAdmin) {
+      throw new Error("Forbidden");
     }
 
     if (expectedVersion !== session.latestSceneVersion) {
@@ -136,6 +155,7 @@ export const setLatestScene = mutation({
     const newVersion = session.latestSceneVersion + 1;
 
     await ctx.db.patch(session._id, {
+      ownerUserId: session.ownerUserId ?? user._id,
       latestScene: scene,
       latestSceneVersion: newVersion,
       updatedAt: now,

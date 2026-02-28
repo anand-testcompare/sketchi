@@ -14,9 +14,66 @@ import { resolveExcalidrawFromShareUrl } from "./lib/resolve-share-url";
 import { createToolTraceId } from "./lib/trace";
 
 const DEFAULT_API_BASE = "https://sketchi.app";
+const DEFAULT_OAUTH_TOKEN_TTL_MS = 60 * 60 * 1000;
+const DEVICE_FLOW_POLLING_SAFETY_MARGIN_MS = 1000;
 const TRAILING_SLASH_PATTERN = /\/$/;
 const GRADE_CALL_STATE_LIMIT = 2048;
 const gradeCallStateByMessage = new Map<string, "running" | "completed">();
+
+function toBearerHeaderValue(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  if (trimmed.toLowerCase().startsWith("bearer ")) {
+    return trimmed;
+  }
+
+  return `Bearer ${trimmed}`;
+}
+
+function resolveAuthorizationHeaderFromAuth(auth: unknown): string | null {
+  if (!auth || typeof auth !== "object") {
+    return null;
+  }
+
+  const value = auth as {
+    type?: unknown;
+    access?: unknown;
+    refresh?: unknown;
+  };
+
+  if (value.type === "oauth") {
+    if (typeof value.access === "string") {
+      const header = toBearerHeaderValue(value.access);
+      if (header) {
+        return header;
+      }
+    }
+    if (typeof value.refresh === "string") {
+      const header = toBearerHeaderValue(value.refresh);
+      if (header) {
+        return header;
+      }
+    }
+  }
+
+  return null;
+}
+
+function createRequestHeaders(input: {
+  traceId: string;
+  authorizationHeader: string | null;
+}): Record<string, string> {
+  return {
+    "Content-Type": "application/json",
+    "x-trace-id": input.traceId,
+    ...(input.authorizationHeader
+      ? { Authorization: input.authorizationHeader }
+      : {}),
+  };
+}
 
 function gradeCallKey(sessionID: string, messageID?: string): string {
   return `${sessionID}:${messageID ?? "unknown"}`;
@@ -62,10 +119,48 @@ function extractMessageText(
   return textParts.join("\n");
 }
 
+interface DeviceStartResponse {
+  deviceCode: string;
+  expiresIn: number;
+  interval: number;
+  userCode: string;
+  verificationUrl: string;
+}
+
+type DeviceTokenResponse =
+  | {
+      status: "authorization_pending";
+      interval: number;
+    }
+  | {
+      status: "slow_down";
+      interval: number;
+    }
+  | {
+      status: "success";
+      accessToken: string;
+      accessTokenExpiresAt?: number;
+    }
+  | {
+      status: "expired_token" | "invalid_grant";
+    };
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 export const SketchiPlugin: Plugin = (input) => {
   const apiBase = normalizeApiBase(
     process.env.SKETCHI_API_URL ?? DEFAULT_API_BASE
   );
+  const envAuthorizationHeader =
+    toBearerHeaderValue(process.env.SKETCHI_ACCESS_TOKEN ?? "") ||
+    toBearerHeaderValue(process.env.SKETCHI_BEARER_TOKEN ?? "") ||
+    null;
+
+  let getAuthorizationHeader = async () => envAuthorizationHeader;
 
   return Promise.resolve({
     tool: {
@@ -93,6 +188,7 @@ export const SketchiPlugin: Plugin = (input) => {
         },
         async execute(args, context) {
           const traceId = createToolTraceId();
+          const authorizationHeader = await getAuthorizationHeader();
           const response = await fetchJson<{
             shareLink: { url: string; shareId: string; encryptionKey: string };
             elements: Record<string, unknown>[];
@@ -102,10 +198,10 @@ export const SketchiPlugin: Plugin = (input) => {
             `${apiBase}/api/diagrams/generate`,
             {
               method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "x-trace-id": traceId,
-              },
+              headers: createRequestHeaders({
+                traceId,
+                authorizationHeader,
+              }),
               body: JSON.stringify({
                 prompt: args.prompt,
               }),
@@ -125,6 +221,7 @@ export const SketchiPlugin: Plugin = (input) => {
                     shareUrl: response.shareLink.url,
                     apiBase,
                     traceId,
+                    authorizationHeader,
                     abort: context.abort,
                   })
                 ).elements;
@@ -201,6 +298,7 @@ export const SketchiPlugin: Plugin = (input) => {
           const serverTimeoutMs = args.options?.timeoutMs ?? 60_000;
           const requestTimeoutMs = Math.max(5000, serverTimeoutMs + 5000);
           const traceId = createToolTraceId();
+          const authorizationHeader = await getAuthorizationHeader();
 
           let shareUrl = args.shareUrl;
           if (!shareUrl) {
@@ -225,7 +323,8 @@ export const SketchiPlugin: Plugin = (input) => {
               },
               context.abort,
               requestTimeoutMs,
-              traceId
+              traceId,
+              authorizationHeader
             );
 
             shareUrl = shared.url;
@@ -245,10 +344,10 @@ export const SketchiPlugin: Plugin = (input) => {
             `${apiBase}/api/diagrams/tweak`,
             {
               method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "x-trace-id": traceId,
-              },
+              headers: createRequestHeaders({
+                traceId,
+                authorizationHeader,
+              }),
               body: JSON.stringify({
                 shareUrl,
                 request: args.request,
@@ -280,6 +379,7 @@ export const SketchiPlugin: Plugin = (input) => {
                     shareUrl: response.shareLink.url,
                     apiBase,
                     traceId,
+                    authorizationHeader,
                     abort: context.abort,
                   })
                 ).elements;
@@ -358,6 +458,7 @@ export const SketchiPlugin: Plugin = (input) => {
           const serverTimeoutMs = args.options?.timeoutMs ?? 240_000;
           const requestTimeoutMs = Math.max(5000, serverTimeoutMs + 5000);
           const traceId = createToolTraceId();
+          const authorizationHeader = await getAuthorizationHeader();
 
           let shareUrl = args.shareUrl;
           if (!shareUrl) {
@@ -382,7 +483,8 @@ export const SketchiPlugin: Plugin = (input) => {
               },
               context.abort,
               requestTimeoutMs,
-              traceId
+              traceId,
+              authorizationHeader
             );
 
             shareUrl = shared.url;
@@ -402,10 +504,10 @@ export const SketchiPlugin: Plugin = (input) => {
             `${apiBase}/api/diagrams/restructure`,
             {
               method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "x-trace-id": traceId,
-              },
+              headers: createRequestHeaders({
+                traceId,
+                authorizationHeader,
+              }),
               body: JSON.stringify({
                 shareUrl,
                 prompt: args.prompt,
@@ -437,6 +539,7 @@ export const SketchiPlugin: Plugin = (input) => {
                     shareUrl: response.shareLink.url,
                     apiBase,
                     traceId,
+                    authorizationHeader,
                     abort: context.abort,
                   })
                 ).elements;
@@ -502,6 +605,7 @@ export const SketchiPlugin: Plugin = (input) => {
         },
         async execute(args, context) {
           const traceId = createToolTraceId();
+          const authorizationHeader = await getAuthorizationHeader();
           const excalidraw =
             args.excalidraw ??
             (args.excalidrawPath
@@ -528,6 +632,7 @@ export const SketchiPlugin: Plugin = (input) => {
                 shareUrl: args.shareUrl,
                 apiBase,
                 traceId,
+                authorizationHeader,
                 abort: context.abort,
               });
               elements = resolved.elements;
@@ -540,7 +645,8 @@ export const SketchiPlugin: Plugin = (input) => {
                 },
                 context.abort,
                 undefined,
-                traceId
+                traceId,
+                authorizationHeader
               );
               shareLink = shared;
               elements = excalidraw.elements;
@@ -662,6 +768,100 @@ export const SketchiPlugin: Plugin = (input) => {
           }
         },
       }),
+    },
+    auth: {
+      provider: "sketchi",
+      loader(getAuth) {
+        getAuthorizationHeader = async () => {
+          const auth = await getAuth();
+          return (
+            resolveAuthorizationHeaderFromAuth(auth) ?? envAuthorizationHeader
+          );
+        };
+        return Promise.resolve({});
+      },
+      methods: [
+        {
+          type: "oauth",
+          label: "Sign in with Sketchi (device flow)",
+          async authorize() {
+            const started = await fetchJson<DeviceStartResponse>(
+              `${apiBase}/api/auth/device/start`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({}),
+              }
+            );
+
+            const startedAt = Date.now();
+            const expiresAt = startedAt + Math.max(1, started.expiresIn) * 1000;
+            const defaultIntervalMs = Math.max(1, started.interval) * 1000;
+
+            return {
+              method: "auto" as const,
+              url: started.verificationUrl,
+              instructions: `Enter code: ${started.userCode}`,
+              callback: async () => {
+                let intervalMs = defaultIntervalMs;
+
+                while (Date.now() < expiresAt) {
+                  await sleep(
+                    intervalMs + DEVICE_FLOW_POLLING_SAFETY_MARGIN_MS
+                  );
+
+                  const pollResult = await fetchJson<DeviceTokenResponse>(
+                    `${apiBase}/api/auth/device/token`,
+                    {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify({
+                        deviceCode: started.deviceCode,
+                      }),
+                    }
+                  ).catch(() => ({ status: "invalid_grant" as const }));
+
+                  if (pollResult.status === "authorization_pending") {
+                    continue;
+                  }
+
+                  if (pollResult.status === "slow_down") {
+                    intervalMs = Math.max(
+                      intervalMs + 5000,
+                      Math.max(1, pollResult.interval) * 1000
+                    );
+                    continue;
+                  }
+
+                  if (pollResult.status !== "success") {
+                    return {
+                      type: "failed" as const,
+                    };
+                  }
+
+                  return {
+                    type: "success" as const,
+                    refresh: pollResult.accessToken,
+                    access: pollResult.accessToken,
+                    expires:
+                      pollResult.accessTokenExpiresAt ??
+                      Date.now() + DEFAULT_OAUTH_TOKEN_TTL_MS,
+                    provider: "sketchi",
+                  };
+                }
+
+                return {
+                  type: "failed" as const,
+                };
+              },
+            };
+          },
+        },
+      ],
     },
     config: (config) => {
       applySketchiDiagramAgentConfig(config);

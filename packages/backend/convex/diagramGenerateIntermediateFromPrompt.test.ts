@@ -21,6 +21,10 @@ const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
 loadEnv({ path: join(repoRoot, ".env.e2e") });
 
 const t = convexTest(schema, modules);
+const authed = t.withIdentity({
+  subject: "test-user-prompt-e2e",
+  email: "prompt-e2e@example.com",
+});
 
 const outputDir = fileURLToPath(new URL("../test-results", import.meta.url));
 const summaryMdPath = join(outputDir, "prompt-intermediate-summary.md");
@@ -107,7 +111,7 @@ async function runScenario(scenario: Scenario): Promise<ScenarioResult> {
   try {
     const generateDiagramStart = Date.now();
     // Step 1: Generate diagram (includes intermediate + share link)
-    const diagResult = await t.action(api.diagrams.generateDiagram, {
+    const diagResult = await authed.action(api.diagrams.generateDiagram, {
       prompt: scenario.prompt,
     });
     stepDurationsMs.generateDiagram = Date.now() - generateDiagramStart;

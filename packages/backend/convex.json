@@ -17,9 +17,9 @@
     },
     "preview": {
       "configure": {
-        "redirectUris": ["https://${buildEnv.VERCEL_BRANCH_URL}/callback"],
-        "appHomepageUrl": "https://${buildEnv.VERCEL_PROJECT_PRODUCTION_URL}",
-        "corsOrigins": ["https://${buildEnv.VERCEL_BRANCH_URL}"]
+        "redirectUris": ["https://${buildEnv.VERCEL_URL}/callback"],
+        "appHomepageUrl": "https://${buildEnv.VERCEL_URL}",
+        "corsOrigins": ["https://${buildEnv.VERCEL_URL}"]
       }
     },
     "prod": {

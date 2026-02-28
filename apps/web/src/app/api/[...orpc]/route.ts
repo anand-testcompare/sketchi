@@ -30,7 +30,7 @@ async function handleRequest(request: Request) {
   try {
     const result = await handler.handle(request, {
       prefix: "/api",
-      context: createOrpcContext(request, traceId),
+      context: createOrpcContext(request, { traceIdOverride: traceId }),
     });
     response = result.response ?? new Response("Not Found", { status: 404 });
   } catch (err) {

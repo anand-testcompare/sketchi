@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as deviceAuth from "../deviceAuth.js";
 import type * as diagramGenerateFromIntermediate from "../diagramGenerateFromIntermediate.js";
 import type * as diagramGenerateIntermediateFromPrompt from "../diagramGenerateIntermediateFromPrompt.js";
 import type * as diagramModifyElements from "../diagramModifyElements.js";
@@ -24,7 +25,9 @@ import type * as lib_excalidrawShareLinks from "../lib/excalidrawShareLinks.js";
 import type * as lib_logging from "../lib/logging.js";
 import type * as lib_observability from "../lib/observability.js";
 import type * as lib_trace from "../lib/trace.js";
+import type * as lib_users from "../lib/users.js";
 import type * as observability from "../observability.js";
+import type * as users from "../users.js";
 
 import type {
   ApiFromModules,
@@ -33,6 +36,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  deviceAuth: typeof deviceAuth;
   diagramGenerateFromIntermediate: typeof diagramGenerateFromIntermediate;
   diagramGenerateIntermediateFromPrompt: typeof diagramGenerateIntermediateFromPrompt;
   diagramModifyElements: typeof diagramModifyElements;
@@ -49,7 +53,9 @@ declare const fullApi: ApiFromModules<{
   "lib/logging": typeof lib_logging;
   "lib/observability": typeof lib_observability;
   "lib/trace": typeof lib_trace;
+  "lib/users": typeof lib_users;
   observability: typeof observability;
+  users: typeof users;
 }>;
 
 /**
