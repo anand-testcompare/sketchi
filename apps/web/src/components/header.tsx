@@ -1,9 +1,11 @@
 "use client";
+
 import { useAuth } from "@workos-inc/authkit-nextjs/components";
 import {
   BookOpenText,
   ChevronDown,
   LogOut,
+  PenTool,
   Sparkles,
   UserRound,
 } from "lucide-react";
@@ -77,7 +79,7 @@ export default function Header() {
             Icon Libraries
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => router.push("/diagrams")}>
-            <Sparkles className="size-3.5" />
+            <PenTool className="size-3.5" />
             Diagram Studio
           </DropdownMenuItem>
           <DropdownMenuItem
@@ -136,6 +138,7 @@ export default function Header() {
           </span>
         </Link>
         <div className="flex items-center gap-2 sm:gap-4">
+          {authControls}
           <Link
             className="hidden rounded-full border-2 border-transparent px-3 py-1.5 font-medium text-muted-foreground text-xs transition-all hover:border-foreground/10 hover:bg-muted/40 hover:text-foreground sm:inline-flex"
             href="/api/docs"
@@ -145,7 +148,6 @@ export default function Header() {
             API Docs
           </Link>
           <ModeToggle />
-          {authControls}
         </div>
       </div>
     </header>
