@@ -12,6 +12,13 @@ interface SignInPageProps {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }
 
+function getPreviewOrigin(): string | undefined {
+  if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  return undefined;
+}
+
 async function getRequestOrigin(): Promise<string | undefined> {
   const requestHeaders = await headers();
   const host =
@@ -54,7 +61,8 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
     ? Buffer.from(JSON.stringify({ returnPathname }), "utf8").toString("base64")
     : undefined;
   const requestOrigin = await getRequestOrigin();
-  const redirectUri = requestOrigin ? `${requestOrigin}/callback` : undefined;
+  const authOrigin = getPreviewOrigin() ?? requestOrigin;
+  const redirectUri = authOrigin ? `${authOrigin}/callback` : undefined;
 
   if (user) {
     const destination = returnPathname ?? "/";
