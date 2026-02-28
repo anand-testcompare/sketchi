@@ -4,6 +4,8 @@ import { Check, Copy } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
+import { opencodePluginVersion } from "@/lib/opencode-version";
+
 const npmUrl = "https://www.npmjs.com/package/@sketchi-app/opencode-excalidraw";
 const githubUrl =
   "https://github.com/anand-testcompare/sketchi/tree/main/packages/opencode-excalidraw";
@@ -227,7 +229,7 @@ function deriveDemoUiState(demoPhase: DemoPhase): DemoUiState {
 }
 
 export default function OpenCodeDocsPage() {
-  const [version, setVersion] = useState("latest");
+  const [version, setVersion] = useState(opencodePluginVersion);
   const [copied, setCopied] = useState(false);
   const previewFrameRef = useRef<HTMLDivElement>(null);
 

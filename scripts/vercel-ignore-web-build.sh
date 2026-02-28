@@ -9,7 +9,11 @@ if [ -z "${BEFORE_SHA}" ] || [ -z "${AFTER_SHA}" ]; then
   exit 1
 fi
 
-CHANGED_FILES="$(git diff --name-only "${BEFORE_SHA}..${AFTER_SHA}" || true)"
+if ! CHANGED_FILES="$(git diff --name-only "${BEFORE_SHA}..${AFTER_SHA}")"; then
+  echo "Unable to diff ${BEFORE_SHA}..${AFTER_SHA}; continue with build."
+  exit 1
+fi
+
 if [ -z "${CHANGED_FILES}" ]; then
   echo "No changed files detected; skip build."
   exit 0
