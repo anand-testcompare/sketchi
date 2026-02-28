@@ -4,7 +4,11 @@ import type { NextRequest } from "next/server";
 const AUTH_ROUTES = new Set(["/callback", "/sign-in", "/sign-up", "/sign-out"]);
 
 function isProtectedPath(pathname: string): boolean {
-  return pathname.startsWith("/diagrams") || pathname.startsWith("/settings");
+  return (
+    pathname.startsWith("/diagrams") ||
+    pathname.startsWith("/profile") ||
+    pathname.startsWith("/settings")
+  );
 }
 
 export async function proxy(request: NextRequest) {

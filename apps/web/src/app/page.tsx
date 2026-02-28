@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { AnimatedSketchiLogo } from "@/components/animated-sketchi-logo";
 import { ScreenshotViewer } from "@/components/screenshot-viewer";
+import { opencodePluginVersionLabel } from "@/lib/opencode-version";
 
 type FeatureStatus = "available" | "alpha" | "coming-soon";
 
@@ -213,7 +214,7 @@ export default function Home() {
       description:
         "Bi-directional human-in-the-loop diagramming for AI agents. Create, modify, and grade diagrams directly from your development workflow.",
       status: "available",
-      statusLabel: "v0.0.3",
+      statusLabel: opencodePluginVersionLabel,
       href: "/opencode",
       icon: <Terminal className="size-5" />,
       screenshot: {
