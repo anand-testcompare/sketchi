@@ -8,6 +8,7 @@ import {
   validateEdgeReferences,
 } from "../lib/diagram-renderer";
 import { simplifyDiagramElements } from "../lib/diagram-simplify";
+import type { ActionCtx } from "./_generated/server";
 import { modifyElementsWithAgent } from "./diagramModifyElements";
 import {
   createExcalidrawShareLink,
@@ -30,6 +31,13 @@ interface GenerateStats {
 
 interface RestructureStats extends GenerateStats {
   strategy: "restructure";
+}
+
+async function requireDiagramAuth(ctx: Pick<ActionCtx, "auth">): Promise<void> {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) {
+    throw new Error("Unauthorized");
+  }
 }
 
 const generateDiagramAction = createLoggedAction<
@@ -213,7 +221,9 @@ export const generateDiagram = generateDiagramAction({
     intermediate: v.optional(v.any()),
     traceId: v.optional(v.string()),
   },
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
+    await requireDiagramAuth(ctx);
+
     if (!(args.prompt || args.intermediate)) {
       throw new Error("Either prompt or intermediate is required.");
     }
@@ -383,7 +393,9 @@ const tweakDiagramImpl = tweakDiagramAction({
       })
     ),
   },
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
+    await requireDiagramAuth(ctx);
+
     const traceId = args.traceId ?? crypto.randomUUID();
     const requestLength = args.request.length;
     const requestHash = hashString(args.request);
@@ -615,7 +627,9 @@ export const restructureDiagram = restructureDiagramAction({
       })
     ),
   },
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
+    await requireDiagramAuth(ctx);
+
     const startedAt = Date.now();
     const traceId = args.traceId ?? crypto.randomUUID();
     const promptLength = args.prompt.length;
@@ -836,7 +850,9 @@ export const restructureFromScene = restructureFromSceneAction({
     ),
     sessionId: v.optional(v.string()),
   },
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
+    await requireDiagramAuth(ctx);
+
     const startedAt = Date.now();
     const traceId = args.traceId ?? crypto.randomUUID();
     const promptLength = args.prompt.length;
@@ -1033,7 +1049,9 @@ export const generateFromPromptForStudio = generateFromPromptForStudioAction({
     traceId: v.optional(v.string()),
     sessionId: v.optional(v.string()),
   },
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
+    await requireDiagramAuth(ctx);
+
     const startedAt = Date.now();
     let traceId: string = args.traceId ?? crypto.randomUUID();
     const promptLength = args.prompt.length;
@@ -1212,7 +1230,9 @@ export const parseDiagram = parseDiagramAction({
     shareUrl: v.string(),
     traceId: v.optional(v.string()),
   },
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
+    await requireDiagramAuth(ctx);
+
     const traceId = args.traceId ?? crypto.randomUUID();
     logEventSafely({
       traceId,
@@ -1286,7 +1306,9 @@ export const shareDiagram = shareDiagramAction({
     appState: v.optional(v.any()),
     traceId: v.optional(v.string()),
   },
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
+    await requireDiagramAuth(ctx);
+
     const traceId = args.traceId ?? crypto.randomUUID();
     const elementCount = Array.isArray(args.elements)
       ? args.elements.length

@@ -6,6 +6,10 @@ import schema from "./schema";
 import { modules } from "./test.setup";
 
 const t = convexTest(schema, modules);
+const authed = t.withIdentity({
+  subject: "test-user-icon-libraries",
+  email: "icon-libraries@example.com",
+});
 
 const baseStyleSettings = {
   strokeColor: "#000000",
@@ -18,35 +22,49 @@ const baseStyleSettings = {
 
 describe("iconLibraries", () => {
   test("create defaults roughness to 0.4", async () => {
-    const id = await t.mutation(api.iconLibraries.create, { name: "Test Lib" });
-    const data = await t.query(api.iconLibraries.get, { id });
+    const id = await authed.mutation(api.iconLibraries.create, {
+      name: "Test Lib",
+    });
+    const data = await authed.query(api.iconLibraries.get, { id });
+    expect(data).not.toBeNull();
+    if (!data) {
+      throw new Error("expected icon library data");
+    }
 
     expect(data.library.styleSettings.roughness).toBeCloseTo(0.4, 5);
   });
 
   test("update clamps roughness to <= 2", async () => {
-    const id = await t.mutation(api.iconLibraries.create, {
+    const id = await authed.mutation(api.iconLibraries.create, {
       name: "Clamp Lib",
     });
-    await t.mutation(api.iconLibraries.update, {
+    await authed.mutation(api.iconLibraries.update, {
       id,
       styleSettings: { ...baseStyleSettings, roughness: 5 },
     });
 
-    const data = await t.query(api.iconLibraries.get, { id });
+    const data = await authed.query(api.iconLibraries.get, { id });
+    expect(data).not.toBeNull();
+    if (!data) {
+      throw new Error("expected icon library data");
+    }
     expect(data.library.styleSettings.roughness).toBe(2);
   });
 
   test("update clamps roughness to >= 0", async () => {
-    const id = await t.mutation(api.iconLibraries.create, {
+    const id = await authed.mutation(api.iconLibraries.create, {
       name: "Clamp Lib 2",
     });
-    await t.mutation(api.iconLibraries.update, {
+    await authed.mutation(api.iconLibraries.update, {
       id,
       styleSettings: { ...baseStyleSettings, roughness: -1 },
     });
 
-    const data = await t.query(api.iconLibraries.get, { id });
+    const data = await authed.query(api.iconLibraries.get, { id });
+    expect(data).not.toBeNull();
+    if (!data) {
+      throw new Error("expected icon library data");
+    }
     expect(data.library.styleSettings.roughness).toBe(0);
   });
 });

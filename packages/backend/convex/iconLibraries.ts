@@ -2,6 +2,12 @@ import { v } from "convex/values";
 
 import type { DatabaseReader } from "./_generated/server";
 import { internalMutation, mutation, query } from "./_generated/server";
+import {
+  ensureViewerUser,
+  findUserByExternalId,
+  getIdentityExternalId,
+  isIdentityAdmin,
+} from "./lib/users";
 
 const DEFAULT_STYLE_SETTINGS = {
   strokeColor: "#1f2937",
@@ -38,12 +44,64 @@ const getUniqueSlug = async (ctx: { db: DatabaseReader }, base: string) => {
   }
 };
 
+function resolveVisibility(
+  value: "public" | "private" | undefined
+): "public" | "private" {
+  return value === "private" ? "private" : "public";
+}
+
+function canReadLibrary(args: {
+  visibility: "public" | "private";
+  ownerUserId: string | undefined;
+  viewerUserId: string | undefined;
+  isAdmin: boolean;
+}): boolean {
+  if (args.visibility === "public") {
+    return true;
+  }
+  if (args.isAdmin) {
+    return true;
+  }
+  return Boolean(args.viewerUserId && args.ownerUserId === args.viewerUserId);
+}
+
+function canWriteLibrary(args: {
+  visibility: "public" | "private";
+  ownerUserId: string | undefined;
+  viewerUserId: string;
+  isAdmin: boolean;
+}): boolean {
+  if (args.isAdmin) {
+    return true;
+  }
+  if (args.visibility === "public") {
+    return false;
+  }
+  return args.ownerUserId === args.viewerUserId;
+}
+
 export const list = query({
   handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    const viewerUser = identity
+      ? await findUserByExternalId(ctx, getIdentityExternalId(identity))
+      : null;
+    const viewerUserId = viewerUser?._id;
+    const isAdmin = identity ? isIdentityAdmin(identity) : false;
+
     const libraries = await ctx.db.query("iconLibraries").collect();
 
+    const visibleLibraries = libraries.filter((library) =>
+      canReadLibrary({
+        visibility: resolveVisibility(library.visibility),
+        ownerUserId: library.ownerUserId,
+        viewerUserId,
+        isAdmin,
+      })
+    );
+
     return Promise.all(
-      libraries.map(async (library) => {
+      visibleLibraries.map(async (library) => {
         const icons = await ctx.db
           .query("iconItems")
           .withIndex("by_library_order", (q) => q.eq("libraryId", library._id))
@@ -62,6 +120,18 @@ export const list = query({
 
         return {
           ...library,
+          visibility: resolveVisibility(library.visibility),
+          canEdit: viewerUserId
+            ? canWriteLibrary({
+                visibility: resolveVisibility(library.visibility),
+                ownerUserId: library.ownerUserId,
+                viewerUserId,
+                isAdmin,
+              })
+            : false,
+          isOwner: Boolean(
+            viewerUserId && library.ownerUserId === viewerUserId
+          ),
           iconCount: icons.length,
           previewUrls,
         };
@@ -73,6 +143,13 @@ export const list = query({
 export const getBySlug = query({
   args: { slug: v.string() },
   handler: async (ctx, { slug }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    const viewerUser = identity
+      ? await findUserByExternalId(ctx, getIdentityExternalId(identity))
+      : null;
+    const viewerUserId = viewerUser?._id;
+    const isAdmin = identity ? isIdentityAdmin(identity) : false;
+
     const library = await ctx.db
       .query("iconLibraries")
       .withIndex("by_slug", (q) => q.eq("slug", slug))
@@ -82,13 +159,36 @@ export const getBySlug = query({
       return null;
     }
 
+    const visibility = resolveVisibility(library.visibility);
+    if (
+      !canReadLibrary({
+        visibility,
+        ownerUserId: library.ownerUserId,
+        viewerUserId,
+        isAdmin,
+      })
+    ) {
+      return null;
+    }
+
     const icons = await ctx.db
       .query("iconItems")
       .withIndex("by_library", (q) => q.eq("libraryId", library._id))
       .collect();
 
     return {
-      library,
+      library: {
+        ...library,
+        visibility,
+      },
+      canEdit: viewerUserId
+        ? canWriteLibrary({
+            visibility,
+            ownerUserId: library.ownerUserId,
+            viewerUserId,
+            isAdmin,
+          })
+        : false,
       iconCount: icons.length,
     };
   },
@@ -97,10 +197,38 @@ export const getBySlug = query({
 export const get = query({
   args: { id: v.id("iconLibraries") },
   handler: async (ctx, { id }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    const viewerUser = identity
+      ? await findUserByExternalId(ctx, getIdentityExternalId(identity))
+      : null;
+    const viewerUserId = viewerUser?._id;
+    const isAdmin = identity ? isIdentityAdmin(identity) : false;
+
     const library = await ctx.db.get(id);
     if (!library) {
-      throw new Error("Icon library not found.");
+      return null;
     }
+
+    const visibility = resolveVisibility(library.visibility);
+    if (
+      !canReadLibrary({
+        visibility,
+        ownerUserId: library.ownerUserId,
+        viewerUserId,
+        isAdmin,
+      })
+    ) {
+      return null;
+    }
+
+    const canEdit = viewerUserId
+      ? canWriteLibrary({
+          visibility,
+          ownerUserId: library.ownerUserId,
+          viewerUserId,
+          isAdmin,
+        })
+      : false;
 
     const icons = await ctx.db
       .query("iconItems")
@@ -115,7 +243,19 @@ export const get = query({
       }))
     );
 
-    return { library, icons: iconsWithUrls };
+    return {
+      library: {
+        ...library,
+        visibility,
+      },
+      icons: iconsWithUrls,
+      permissions: {
+        canEdit,
+        canUpload: canEdit,
+        isPublic: visibility === "public",
+        isOwner: Boolean(viewerUserId && library.ownerUserId === viewerUserId),
+      },
+    };
   },
 });
 
@@ -124,8 +264,16 @@ export const create = mutation({
     name: v.string(),
     description: v.optional(v.string()),
     slug: v.optional(v.string()),
+    visibility: v.optional(v.union(v.literal("public"), v.literal("private"))),
   },
-  handler: async (ctx, { name, description, slug }) => {
+  handler: async (ctx, { name, description, slug, visibility }) => {
+    const { user, isAdmin } = await ensureViewerUser(ctx);
+
+    const targetVisibility = visibility ?? "private";
+    if (targetVisibility === "public" && !isAdmin) {
+      throw new Error("Forbidden");
+    }
+
     const baseSlug = slug ? slugify(slug) : slugify(name);
     const uniqueSlug = await getUniqueSlug(ctx, baseSlug);
     const now = Date.now();
@@ -135,6 +283,8 @@ export const create = mutation({
       slug: uniqueSlug,
       description,
       styleSettings: { ...DEFAULT_STYLE_SETTINGS },
+      visibility: targetVisibility,
+      ownerUserId: user._id,
       createdAt: now,
       updatedAt: now,
     });
@@ -146,6 +296,7 @@ export const update = mutation({
     id: v.id("iconLibraries"),
     name: v.optional(v.string()),
     description: v.optional(v.string()),
+    visibility: v.optional(v.union(v.literal("public"), v.literal("private"))),
     styleSettings: v.optional(
       v.object({
         strokeColor: v.string(),
@@ -167,13 +318,40 @@ export const update = mutation({
       })
     ),
   },
-  handler: async (ctx, { id, name, description, styleSettings }) => {
+  handler: async (
+    ctx,
+    { id, name, description, visibility, styleSettings }
+  ) => {
+    const { user, isAdmin } = await ensureViewerUser(ctx);
+    const library = await ctx.db.get(id);
+    if (!library) {
+      throw new Error("Icon library not found.");
+    }
+
+    const currentVisibility = resolveVisibility(library.visibility);
+    if (
+      !canWriteLibrary({
+        visibility: currentVisibility,
+        ownerUserId: library.ownerUserId,
+        viewerUserId: user._id,
+        isAdmin,
+      })
+    ) {
+      throw new Error("Forbidden");
+    }
+
     const updates: Record<string, unknown> = { updatedAt: Date.now() };
     if (name !== undefined) {
       updates.name = name;
     }
     if (description !== undefined) {
       updates.description = description;
+    }
+    if (visibility !== undefined) {
+      if (!isAdmin) {
+        throw new Error("Forbidden");
+      }
+      updates.visibility = visibility;
     }
     if (styleSettings !== undefined) {
       const clampedRoughness = Math.max(
@@ -187,8 +365,57 @@ export const update = mutation({
   },
 });
 
+export const ensureWriteAccess = mutation({
+  args: {
+    libraryId: v.id("iconLibraries"),
+  },
+  handler: async (ctx, { libraryId }) => {
+    const { user, isAdmin } = await ensureViewerUser(ctx);
+    const library = await ctx.db.get(libraryId);
+    if (!library) {
+      throw new Error("Icon library not found.");
+    }
+
+    if (
+      !canWriteLibrary({
+        visibility: resolveVisibility(library.visibility),
+        ownerUserId: library.ownerUserId,
+        viewerUserId: user._id,
+        isAdmin,
+      })
+    ) {
+      throw new Error("Forbidden");
+    }
+
+    return {
+      libraryId: library._id,
+      visibility: resolveVisibility(library.visibility),
+    };
+  },
+});
+
 export const generateUploadUrl = mutation({
-  handler: (ctx) => {
+  args: {
+    libraryId: v.id("iconLibraries"),
+  },
+  handler: async (ctx, { libraryId }) => {
+    const { user, isAdmin } = await ensureViewerUser(ctx);
+    const library = await ctx.db.get(libraryId);
+    if (!library) {
+      throw new Error("Icon library not found.");
+    }
+
+    if (
+      !canWriteLibrary({
+        visibility: resolveVisibility(library.visibility),
+        ownerUserId: library.ownerUserId,
+        viewerUserId: user._id,
+        isAdmin,
+      })
+    ) {
+      throw new Error("Forbidden");
+    }
+
     return ctx.storage.generateUploadUrl();
   },
 });
@@ -236,9 +463,26 @@ export const addIconRecord = internalMutation({
 export const deleteIcon = mutation({
   args: { iconId: v.id("iconItems") },
   handler: async (ctx, { iconId }) => {
+    const { user, isAdmin } = await ensureViewerUser(ctx);
     const icon = await ctx.db.get(iconId);
     if (!icon) {
       throw new Error("Icon not found.");
+    }
+
+    const library = await ctx.db.get(icon.libraryId);
+    if (!library) {
+      throw new Error("Icon library not found.");
+    }
+
+    if (
+      !canWriteLibrary({
+        visibility: resolveVisibility(library.visibility),
+        ownerUserId: library.ownerUserId,
+        viewerUserId: user._id,
+        isAdmin,
+      })
+    ) {
+      throw new Error("Forbidden");
     }
 
     await ctx.storage.delete(icon.storageId);
@@ -252,6 +496,23 @@ export const reorderIcons = mutation({
     orderedIds: v.array(v.id("iconItems")),
   },
   handler: async (ctx, { libraryId, orderedIds }) => {
+    const { user, isAdmin } = await ensureViewerUser(ctx);
+    const library = await ctx.db.get(libraryId);
+    if (!library) {
+      throw new Error("Icon library not found.");
+    }
+
+    if (
+      !canWriteLibrary({
+        visibility: resolveVisibility(library.visibility),
+        ownerUserId: library.ownerUserId,
+        viewerUserId: user._id,
+        isAdmin,
+      })
+    ) {
+      throw new Error("Forbidden");
+    }
+
     // Phase 1: Validate ALL icons exist and belong to library
     for (const iconId of orderedIds) {
       const icon = await ctx.db.get(iconId);

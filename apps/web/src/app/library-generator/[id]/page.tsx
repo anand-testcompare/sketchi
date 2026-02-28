@@ -2,6 +2,7 @@
 
 import { api } from "@sketchi/backend/convex/_generated/api";
 import type { Id } from "@sketchi/backend/convex/_generated/dataModel";
+import { useAuth } from "@workos-inc/authkit-nextjs/components";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { use, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -34,6 +35,7 @@ interface PageProps {
 
 export default function LibraryEditorPage({ params }: PageProps) {
   const resolvedParams = use(params);
+  const { user } = useAuth();
   const libraryId = resolvedParams.id as Id<"iconLibraries">;
   const data = useQuery(
     api.iconLibraries.get,
@@ -86,7 +88,14 @@ export default function LibraryEditorPage({ params }: PageProps) {
     [data?.icons]
   );
 
+  const canEdit = Boolean(data?.permissions?.canEdit);
+
   const handleSave = async () => {
+    if (!canEdit) {
+      toast.error("Read-only library. Sign in with edit access to modify.");
+      return;
+    }
+
     if (isSaving) {
       return;
     }
@@ -116,6 +125,11 @@ export default function LibraryEditorPage({ params }: PageProps) {
   };
 
   const uploadSvgFile = async (file: File) => {
+    if (!canEdit) {
+      toast.error("Read-only library. Sign in with edit access to upload.");
+      return;
+    }
+
     if (file.size > MAX_SVG_BYTES) {
       toast.error(`${file.name} exceeds 256KB.`);
       return;
@@ -131,7 +145,7 @@ export default function LibraryEditorPage({ params }: PageProps) {
       return;
     }
 
-    const uploadUrl = await generateUploadUrl({});
+    const uploadUrl = await generateUploadUrl({ libraryId });
     const response = await fetch(uploadUrl, {
       method: "POST",
       headers: { "Content-Type": "image/svg+xml" },
@@ -170,6 +184,11 @@ export default function LibraryEditorPage({ params }: PageProps) {
   };
 
   const handleDeleteSelected = async (ids: string[]) => {
+    if (!canEdit) {
+      toast.error("Read-only library. Sign in with edit access to delete.");
+      return;
+    }
+
     try {
       for (const id of ids) {
         await deleteIcon({ iconId: id as Id<"iconItems"> });
@@ -185,6 +204,11 @@ export default function LibraryEditorPage({ params }: PageProps) {
   };
 
   const handleMove = async (id: string, direction: "left" | "right") => {
+    if (!canEdit) {
+      toast.error("Read-only library. Sign in with edit access to reorder.");
+      return;
+    }
+
     const currentIndex = icons.findIndex((icon) => icon.id === id);
     if (currentIndex === -1) {
       return;
@@ -212,6 +236,18 @@ export default function LibraryEditorPage({ params }: PageProps) {
   };
 
   if (!data) {
+    if (data === null) {
+      return (
+        <div className="container mx-auto w-full max-w-5xl px-4 py-6">
+          <div className="rounded border border-dashed p-6 text-muted-foreground text-xs">
+            {user
+              ? "Library not found or not accessible."
+              : "Sign in to access private libraries."}
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="container mx-auto w-full max-w-5xl px-4 py-6">
         <div className="rounded border border-dashed p-6 text-muted-foreground text-xs">
@@ -226,13 +262,19 @@ export default function LibraryEditorPage({ params }: PageProps) {
       <aside className="flex w-72 shrink-0 flex-col gap-4 overflow-y-auto border-r p-4">
         <div className="flex flex-col gap-3">
           <h1 className="font-semibold text-lg">Library editor</h1>
+          {canEdit ? null : (
+            <p className="text-muted-foreground text-xs">
+              Read-only view. Public libraries can be exported without sign-in.
+            </p>
+          )}
           <Input
             aria-label="Library name"
+            disabled={!canEdit}
             onChange={(event) => setLibraryName(event.target.value)}
             value={libraryName}
           />
           <Button
-            disabled={isSaving}
+            disabled={isSaving || !canEdit}
             onClick={handleSave}
             size="sm"
             type="button"
@@ -252,7 +294,10 @@ export default function LibraryEditorPage({ params }: PageProps) {
 
         <div className="flex flex-col gap-3">
           <h2 className="font-semibold text-sm">Upload</h2>
-          <SvgUploader isUploading={isUploading} onUpload={handleUpload} />
+          <SvgUploader
+            isUploading={isUploading || !canEdit}
+            onUpload={handleUpload}
+          />
         </div>
       </aside>
 
@@ -273,7 +318,7 @@ export default function LibraryEditorPage({ params }: PageProps) {
         <div className="flex-1 overflow-y-auto p-4">
           <IconGrid
             icons={icons}
-            isBusy={isUploading || isSaving}
+            isBusy={isUploading || isSaving || !canEdit}
             onDeleteSelected={handleDeleteSelected}
             onMove={handleMove}
             styleSettings={styleSettings}

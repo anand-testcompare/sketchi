@@ -10,6 +10,7 @@ export async function resolveExcalidrawFromShareUrl(input: {
   shareUrl: string;
   apiBase: string;
   traceId?: string;
+  authorizationHeader?: string | null;
   abort?: AbortSignal;
   deps?: ResolveShareUrlDeps;
 }): Promise<{
@@ -28,7 +29,12 @@ export async function resolveExcalidrawFromShareUrl(input: {
     parseUrl.toString(),
     {
       method: "GET",
-      headers: input.traceId ? { "x-trace-id": input.traceId } : undefined,
+      headers: {
+        ...(input.traceId ? { "x-trace-id": input.traceId } : {}),
+        ...(input.authorizationHeader
+          ? { Authorization: input.authorizationHeader }
+          : {}),
+      },
     },
     input.abort
   );

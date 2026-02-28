@@ -23,6 +23,10 @@ vi.mock("../lib/agents", () => ({
 }));
 
 const t = convexTest(schema, modules);
+const authed = t.withIdentity({
+  subject: "test-user-diagrams",
+  email: "diagrams@example.com",
+});
 
 const EXCALIDRAW_POST_URL = "https://json.excalidraw.com/api/v2/post/";
 const EXCALIDRAW_GET_URL = "https://json.excalidraw.com/api/v2/";
@@ -111,7 +115,7 @@ describe.sequential("diagrams actions", () => {
       traceId: "trace-mocked",
     });
 
-    const result = await t.action(api.diagrams.generateDiagram, {
+    const result = await authed.action(api.diagrams.generateDiagram, {
       prompt: "Generate a simple flowchart",
     });
 
@@ -124,7 +128,7 @@ describe.sequential("diagrams actions", () => {
   });
 
   test("tweakDiagram applies explicit edits", async () => {
-    const result = await t.action(api.diagrams.tweakDiagram, {
+    const result = await authed.action(api.diagrams.tweakDiagram, {
       shareUrl: baseShareLink.url,
       request:
         "node-1_text text = 'Updated Start' node-1_text originalText = 'Updated Start'",
@@ -148,7 +152,7 @@ describe.sequential("diagrams actions", () => {
   });
 
   test("tweakDiagram rejects no-op explicit edits (no share link)", async () => {
-    const result = await t.action(api.diagrams.tweakDiagram, {
+    const result = await authed.action(api.diagrams.tweakDiagram, {
       shareUrl: baseShareLink.url,
       request: "node-1_text text = 'Start'",
       options: {
@@ -169,7 +173,7 @@ describe.sequential("diagrams actions", () => {
   test("tweakDiagram returns V2 share link for V1 input", async () => {
     const v1ShareUrl = await createV1ShareLink(RENDERED.elements, {});
 
-    const result = await t.action(api.diagrams.tweakDiagram, {
+    const result = await authed.action(api.diagrams.tweakDiagram, {
       shareUrl: v1ShareUrl,
       request:
         "node-1_text text = 'Updated Start' node-1_text originalText = 'Updated Start'",
@@ -215,7 +219,7 @@ describe.sequential("diagrams actions", () => {
       traceId: "trace-restructure",
     });
 
-    const result = await t.action(api.diagrams.restructureDiagram, {
+    const result = await authed.action(api.diagrams.restructureDiagram, {
       shareUrl: baseShareLink.url,
       prompt: "Insert a QA step between Start and End.",
       traceId: "trace-restructure",
@@ -256,7 +260,7 @@ describe.sequential("diagrams actions", () => {
       traceId: "trace-restructure-scene",
     });
 
-    const result = await t.action(api.diagrams.restructureFromScene, {
+    const result = await authed.action(api.diagrams.restructureFromScene, {
       elements: RENDERED.elements,
       prompt: "Insert a QA step between Start and End.",
       traceId: "trace-restructure-scene",
@@ -279,7 +283,7 @@ describe.sequential("diagrams actions", () => {
     const mockedModify = vi.mocked(modifyIntermediate);
     mockedModify.mockRejectedValue(new Error("AI service unavailable"));
 
-    const result = await t.action(api.diagrams.restructureFromScene, {
+    const result = await authed.action(api.diagrams.restructureFromScene, {
       elements: RENDERED.elements,
       prompt: "This should fail.",
       traceId: "trace-restructure-scene-fail",
@@ -309,11 +313,14 @@ describe.sequential("diagrams actions", () => {
       traceId: "trace-studio-gen",
     });
 
-    const result = await t.action(api.diagrams.generateFromPromptForStudio, {
-      prompt: "Generate a simple flowchart",
-      traceId: "trace-studio-gen",
-      sessionId: "session-123",
-    });
+    const result = await authed.action(
+      api.diagrams.generateFromPromptForStudio,
+      {
+        prompt: "Generate a simple flowchart",
+        traceId: "trace-studio-gen",
+        sessionId: "session-123",
+      }
+    );
 
     expect(result.status).toBe("success");
     expect(Array.isArray(result.elements)).toBe(true);
@@ -331,10 +338,13 @@ describe.sequential("diagrams actions", () => {
     const mockedGenerate = vi.mocked(generateIntermediate);
     mockedGenerate.mockRejectedValue(new Error("AI service unavailable"));
 
-    const result = await t.action(api.diagrams.generateFromPromptForStudio, {
-      prompt: "This should fail.",
-      traceId: "trace-studio-gen-fail",
-    });
+    const result = await authed.action(
+      api.diagrams.generateFromPromptForStudio,
+      {
+        prompt: "This should fail.",
+        traceId: "trace-studio-gen-fail",
+      }
+    );
 
     expect(result.status).toBe("failed");
     expect(result.reason).toBe("error");
@@ -349,7 +359,7 @@ describe.sequential("diagrams actions", () => {
   });
 
   test("parseDiagram extracts IntermediateFormat", async () => {
-    const result = await t.action(api.diagrams.parseDiagram, {
+    const result = await authed.action(api.diagrams.parseDiagram, {
       shareUrl: baseShareLink.url,
       traceId: "trace-parse",
     });
@@ -366,7 +376,7 @@ describe.sequential("diagrams actions", () => {
   });
 
   test("shareDiagram returns a share link", async () => {
-    const result = await t.action(api.diagrams.shareDiagram, {
+    const result = await authed.action(api.diagrams.shareDiagram, {
       elements: RENDERED.elements,
       appState: {},
     });

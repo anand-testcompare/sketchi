@@ -97,7 +97,7 @@ const FEATURES = [
   },
   {
     icon: <Share2 className="size-3.5" />,
-    label: "Shareable URLs — no sign-in required",
+    label: "Signed-in sessions with sharable URLs",
   },
   {
     icon: <Wand2 className="size-3.5" />,

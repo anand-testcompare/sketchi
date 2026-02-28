@@ -46,6 +46,15 @@ Optional env override:
 
 - `SKETCHI_API_URL` (defaults to `https://sketchi.app`)
 
+Authentication is required for diagram APIs. In OpenCode, select auth provider `sketchi`:
+
+- `Sign in with Sketchi (device flow)`
+- Open the verification URL, sign in, and approve the displayed device code
+
+Optional env-based auth fallback (used when OpenCode auth is not configured):
+
+- `SKETCHI_ACCESS_TOKEN` or `SKETCHI_BEARER_TOKEN` (OAuth bearer token)
+
 ## Testing
 
 - Fast package tests: `bun run test`

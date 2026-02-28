@@ -78,3 +78,4 @@ opencode-logs*/
 
 # Agents
 .agents/skills
+.memory/

@@ -158,6 +158,17 @@ describe("SketchiPlugin", () => {
     expect(tweakDescription?.toLowerCase()).toContain("mermaid");
   });
 
+  test("exposes Sketchi OAuth device-flow auth", async () => {
+    const plugin = await SketchiPlugin(createPluginInput());
+
+    expect(plugin.auth?.provider).toBe("sketchi");
+    expect(plugin.auth?.methods).toHaveLength(1);
+
+    const method = plugin.auth?.methods[0];
+    expect(method?.type).toBe("oauth");
+    expect(method?.label.toLowerCase()).toContain("device flow");
+  });
+
   test("diagram_grade blocks concurrent calls for the same message", async () => {
     const deferred = createDeferred<{
       data: { parts: Array<{ type: string; text: string }> };

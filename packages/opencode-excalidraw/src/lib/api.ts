@@ -39,7 +39,8 @@ export async function shareElements(
   },
   abort?: AbortSignal,
   timeoutMs?: number,
-  traceId?: string
+  traceId?: string,
+  authorizationHeader?: string | null
 ): Promise<{ url: string; shareId: string; encryptionKey: string }> {
   return await fetchJson<{
     url: string;
@@ -52,6 +53,7 @@ export async function shareElements(
       headers: {
         "Content-Type": "application/json",
         ...(traceId ? { "x-trace-id": traceId } : {}),
+        ...(authorizationHeader ? { Authorization: authorizationHeader } : {}),
       },
       body: JSON.stringify({
         elements: input.elements,

@@ -6,30 +6,67 @@ import { createTraceId, normalizeTraceId } from "@sketchi/shared";
 import { ConvexHttpClient } from "convex/browser";
 import { z } from "zod";
 
-const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
-if (!convexUrl) {
-  throw new Error("Missing NEXT_PUBLIC_CONVEX_URL for oRPC router");
+const convexUrl =
+  process.env.NEXT_PUBLIC_CONVEX_URL ??
+  (() => {
+    throw new Error("Missing NEXT_PUBLIC_CONVEX_URL for oRPC router");
+  })();
+
+function parseBearerToken(authorizationHeader: string | null): string | null {
+  if (!authorizationHeader) {
+    return null;
+  }
+
+  const [scheme, token] = authorizationHeader.split(" ", 2);
+  if (!(scheme && token)) {
+    return null;
+  }
+
+  if (scheme.toLowerCase() !== "bearer") {
+    return null;
+  }
+
+  const trimmed = token.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
-const convex = new ConvexHttpClient(convexUrl);
-
 export interface OrpcContext {
+  accessToken: string | null;
   convex: ConvexHttpClient;
   traceId: string;
 }
 
 export function createOrpcContext(
   request: Request,
-  traceIdOverride?: string
+  options?: {
+    traceIdOverride?: string;
+    bearerTokenOverride?: string | null;
+  }
 ): OrpcContext {
   const headerTraceId = normalizeTraceId(request.headers.get("x-trace-id"));
-  const traceId = traceIdOverride ?? headerTraceId ?? createTraceId();
-  return { convex, traceId };
+  const traceId = options?.traceIdOverride ?? headerTraceId ?? createTraceId();
+
+  const bearerToken =
+    options?.bearerTokenOverride ??
+    parseBearerToken(request.headers.get("authorization"));
+  const accessToken = bearerToken;
+
+  const convex = new ConvexHttpClient(convexUrl);
+  if (accessToken) {
+    convex.setAuth(accessToken);
+  }
+
+  return {
+    convex,
+    traceId,
+    accessToken,
+  };
 }
 
 const orpc = os.$context<OrpcContext>();
 
 type PublicErrorReason =
+  | "UNAUTHORIZED"
   | "AI_NO_OUTPUT"
   | "AI_PROVIDER_ERROR"
   | "AI_PARSE_ERROR"
@@ -49,6 +86,9 @@ function classifyError(error: unknown): {
 
     if (lower.includes("no output generated")) {
       return { reason: "AI_NO_OUTPUT", message, name };
+    }
+    if (lower.includes("unauthorized") || lower.includes("forbidden")) {
+      return { reason: "UNAUTHORIZED", message, name };
     }
     if (
       lower.includes("failed to process successful response") ||
@@ -102,6 +142,18 @@ function throwInternalError(params: {
   hint?: string;
 }): never {
   const { reason, message, name } = classifyError(params.error);
+
+  if (reason === "UNAUTHORIZED") {
+    throw new ORPCError("UNAUTHORIZED", {
+      message: `${params.action} requires authentication. traceId=${params.traceId}`,
+      data: {
+        traceId: params.traceId,
+        stage: params.stage,
+        action: params.action,
+      },
+    });
+  }
+
   withScope((scope) => {
     scope.setTag("traceId", params.traceId);
     scope.setTag("orpc.route", params.action);

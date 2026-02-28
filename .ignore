@@ -2,3 +2,4 @@
 # These are gitignored but agents need to search/read them
 !.sisyphus/
 !.agents/skills
+!.memory/

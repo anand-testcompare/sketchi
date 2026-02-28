@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { action } from "./_generated/server";
 
 const MAX_SVG_BYTES = 256 * 1024;
@@ -57,6 +57,10 @@ export const addIcon: ReturnType<typeof action> = action({
     ctx,
     { libraryId, storageId, originalName }
   ): Promise<string> => {
+    await ctx.runMutation(api.iconLibraries.ensureWriteAccess, {
+      libraryId,
+    });
+
     const file = await ctx.storage.get(storageId);
     if (!file) {
       throw new Error("Uploaded SVG not found.");
