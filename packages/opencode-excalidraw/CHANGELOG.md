@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.0.9](https://github.com/shpitdev/sketchi/compare/opencode-excalidraw-v0.0.8...opencode-excalidraw-v0.0.9) (2026-03-02)
+
+
+### Bug Fixes
+
+* harden opencode output path policy ([#187](https://github.com/shpitdev/sketchi/issues/187)) ([bfbc19e](https://github.com/shpitdev/sketchi/commit/bfbc19ecf2d50ef3ab09d2ffae63581138956f14))
+* **opencode-excalidraw:** canonicalize sketchi api base to www ([#190](https://github.com/shpitdev/sketchi/issues/190)) ([2d0691e](https://github.com/shpitdev/sketchi/commit/2d0691eece7f3b89250ee115910424fe1b767c0e))
+
+
+### CI
+
+* publish opencode next on every iteration ([#185](https://github.com/shpitdev/sketchi/issues/185)) ([730906e](https://github.com/shpitdev/sketchi/commit/730906e664e91486f365b691cd8b1f23db3200d9))
+
 ## [0.0.8](https://github.com/shpitdev/sketchi/compare/opencode-excalidraw-v0.0.7...opencode-excalidraw-v0.0.8) (2026-03-01)
 
 
