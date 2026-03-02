@@ -8,7 +8,6 @@
  * @module
  */
 
-import type * as deviceAuth from "../deviceAuth.js";
 import type * as diagramGenerateFromIntermediate from "../diagramGenerateFromIntermediate.js";
 import type * as diagramGenerateIntermediateFromPrompt from "../diagramGenerateIntermediateFromPrompt.js";
 import type * as diagramModifyElements from "../diagramModifyElements.js";
@@ -38,7 +37,6 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  deviceAuth: typeof deviceAuth;
   diagramGenerateFromIntermediate: typeof diagramGenerateFromIntermediate;
   diagramGenerateIntermediateFromPrompt: typeof diagramGenerateIntermediateFromPrompt;
   diagramModifyElements: typeof diagramModifyElements;

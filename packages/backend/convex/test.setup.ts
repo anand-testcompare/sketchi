@@ -17,6 +17,5 @@ export const modules = {
   "./diagramSessions.ts": () => import("./diagramSessions"),
   "./diagramThreads.ts": () => import("./diagramThreads"),
   "./diagramThreadsNode.ts": () => import("./diagramThreadsNode"),
-  "./deviceAuth.ts": () => import("./deviceAuth"),
   "./users.ts": () => import("./users"),
 };
