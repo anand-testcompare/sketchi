@@ -10,6 +10,5 @@
 node_modules
 tests
 docs
-scripts
 venom.log
 venom.0.log
