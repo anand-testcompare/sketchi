@@ -13,7 +13,7 @@ import { closeBrowser, renderElementsToPng } from "./lib/render";
 import { resolveExcalidrawFromShareUrl } from "./lib/resolve-share-url";
 import { createToolTraceId } from "./lib/trace";
 
-const DEFAULT_API_BASE = "https://sketchi.app";
+const DEFAULT_API_BASE = "https://www.sketchi.app";
 const DEFAULT_OAUTH_TOKEN_TTL_MS = 60 * 60 * 1000;
 const DEVICE_FLOW_POLLING_SAFETY_MARGIN_MS = 1000;
 const TRAILING_SLASH_PATTERN = /\/$/;
@@ -149,7 +149,18 @@ function completeGradeCall(key: string): void {
 }
 
 function normalizeApiBase(value: string): string {
-  return value.replace(TRAILING_SLASH_PATTERN, "");
+  const trimmed = value.trim();
+  const withoutTrailingSlash = trimmed.replace(TRAILING_SLASH_PATTERN, "");
+
+  try {
+    const parsed = new URL(withoutTrailingSlash);
+    if (parsed.hostname === "sketchi.app") {
+      parsed.hostname = "www.sketchi.app";
+    }
+    return parsed.toString().replace(TRAILING_SLASH_PATTERN, "");
+  } catch {
+    return withoutTrailingSlash;
+  }
 }
 
 function extractMessageText(
