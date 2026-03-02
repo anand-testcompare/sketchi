@@ -9,7 +9,7 @@ import { opencodePluginVersion } from "@/lib/opencode-version";
 const npmUrl = "https://www.npmjs.com/package/@sketchi-app/opencode-excalidraw";
 const githubUrl =
   "https://github.com/anand-testcompare/sketchi/tree/main/packages/opencode-excalidraw";
-const authCommand = "opencode auth login sketchi";
+const authCommand = "opencode auth login";
 const webCommand = "opencode web";
 const cliCommand = "opencode";
 
@@ -285,7 +285,8 @@ export default function OpenCodeDocsPage() {
                 .
               </li>
               <li>
-                Run <code>{authCommand}</code> once (device-flow sign-in).
+                Run <code>{authCommand}</code> and select <code>sketchi</code>{" "}
+                (device-flow sign-in).
               </li>
               <li>
                 Run <code>{webCommand}</code>.
