@@ -151,7 +151,8 @@ jobs:
           SKETCHI_E2E_PASSWORD: ${{ secrets.SKETCHI_E2E_PASSWORD }}
         run: |
           cd tests/e2e
-          # Assertion coverage: strict continuity + conflict recovery behavior.
+          # Assertion coverage: strict CLI<->web continuity + conflict recovery behavior.
+          bun run opencode-web-continuity
           bun run diagram-studio-happy-path
           bun run diagram-studio-occ-conflict
 

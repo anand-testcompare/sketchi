@@ -138,7 +138,7 @@ function withDeviceAuthPaths(spec: unknown): unknown {
         {
           name: "Device Auth",
           description:
-            "OpenCode CLI device authorization flow. Sign-in/approval happens in browser at /opencode/device.",
+            "OpenCode CLI device authorization flow backed by WorkOS OAuth Device Authorization.",
         },
       ];
 

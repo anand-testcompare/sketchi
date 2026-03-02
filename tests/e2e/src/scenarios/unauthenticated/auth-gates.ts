@@ -6,12 +6,12 @@ Intent: Validate unauthenticated users are prompted to sign in for protected fea
 Steps:
 - Visit /library-generator and verify create controls require sign-in.
 - Visit /diagrams and verify redirect to /sign-in with return path.
-- Visit /opencode/device and verify sign-in prompt is shown.
+- Call /api/auth/device/start and verify it returns a provider verification URL.
 
 Success:
 - Create button in library generator shows "Sign in" and input is disabled.
 - /diagrams redirects to /sign-in with returnPathname.
-- Device verification page displays "Sign in to continue".
+- Device start endpoint returns device + user codes and a verification URL.
 */
 
 import { loadConfig } from "../../runner/config";
@@ -117,17 +117,82 @@ async function assertDiagramsRedirectsToSignIn(
   }
 }
 
-async function assertDevicePageShowsSignInPrompt(
-  page: Awaited<ReturnType<typeof getActivePage>>,
-  baseUrl: string
+async function assertDeviceStartEndpointReturnsVerificationUrl(
+  page: Awaited<ReturnType<typeof getActivePage>>
 ) {
-  await page.goto(resolveUrl(baseUrl, "/opencode/device?userCode=ABCD-EFGH"), {
-    waitUntil: "domcontentloaded",
+  const result = await page.evaluate(async () => {
+    const response = await fetch("/api/auth/device/start", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: "{}",
+    });
+    const payload = (await response.json().catch(() => null)) as {
+      deviceCode?: string;
+      userCode?: string;
+      verificationUrl?: string;
+      interval?: number;
+      expiresIn?: number;
+    } | null;
+
+    return {
+      ok: response.ok,
+      status: response.status,
+      payload,
+    };
   });
 
-  const hasPrompt = await waitForText(page, "Sign in to continue", 10_000);
-  if (!hasPrompt) {
-    throw new Error("Device verification page did not render sign-in prompt.");
+  if (!(result.ok && result.payload)) {
+    throw new Error(
+      `Device flow start failed with status ${result.status ?? "unknown"}.`
+    );
+  }
+
+  if (!result.payload.deviceCode?.trim()) {
+    throw new Error("Device flow start did not return deviceCode.");
+  }
+
+  if (!result.payload.userCode?.trim()) {
+    throw new Error("Device flow start did not return userCode.");
+  }
+
+  if (
+    !(
+      typeof result.payload.interval === "number" && result.payload.interval > 0
+    )
+  ) {
+    throw new Error("Device flow start did not return a valid interval.");
+  }
+
+  if (
+    !(
+      typeof result.payload.expiresIn === "number" &&
+      result.payload.expiresIn > 0
+    )
+  ) {
+    throw new Error("Device flow start did not return a valid expiresIn.");
+  }
+
+  if (!result.payload.verificationUrl?.trim()) {
+    throw new Error("Device flow start did not return verificationUrl.");
+  }
+
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(result.payload.verificationUrl);
+  } catch {
+    throw new Error("Device flow verificationUrl is not a valid URL.");
+  }
+
+  const isExpectedPath =
+    parsedUrl.pathname.includes("/user_management/authorize") ||
+    parsedUrl.pathname.includes("/device");
+
+  if (!isExpectedPath) {
+    throw new Error(
+      `Unexpected verification URL path: ${parsedUrl.pathname || "(empty)"}`
+    );
   }
 }
 
@@ -161,10 +226,10 @@ async function main() {
         "Confirm this shows the sign-in page reached from an unauthenticated /diagrams visit.",
     });
 
-    await assertDevicePageShowsSignInPrompt(page, cfg.baseUrl);
-    await captureScreenshot(reviewPage, cfg, "auth-gates-device-sign-in", {
+    await assertDeviceStartEndpointReturnsVerificationUrl(page);
+    await captureScreenshot(reviewPage, cfg, "auth-gates-device-start", {
       prompt:
-        "Confirm this device verification page requires sign-in and shows the sign-in prompt button.",
+        "Confirm this screenshot still shows unauthenticated context while auth-gates scenario validates device-start payload separately.",
     });
   } catch (error) {
     status = "failed";
