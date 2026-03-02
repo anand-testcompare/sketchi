@@ -21,6 +21,8 @@ const GRADE_CALL_STATE_LIMIT = 2048;
 const SKETCHI_SESSION_CACHE_LIMIT = 2048;
 const DEFAULT_THREAD_RUN_TIMEOUT_MS = 180_000;
 const SKIP_PNG_RENDER = process.env.SKETCHI_SKIP_PNG_RENDER === "1";
+const ALLOW_UNSAFE_OUTPUT_PATH =
+  process.env.SKETCHI_ALLOW_UNSAFE_OUTPUT_PATH === "1";
 const gradeCallStateByMessage = new Map<string, "running" | "completed">();
 const sketchiSessionByOpenCodeSession = new Map<string, string>();
 
@@ -389,7 +391,9 @@ export const SketchiPlugin: Plugin = (input) => {
           outputPath: tool.schema
             .string()
             .optional()
-            .describe("Optional PNG output path"),
+            .describe(
+              "Optional PNG output path under .sketchi/sessions/<sessionID>/png (set SKETCHI_ALLOW_UNSAFE_OUTPUT_PATH=1 to allow paths outside this root)"
+            ),
           scale: tool.schema
             .number()
             .optional()
@@ -444,8 +448,19 @@ export const SketchiPlugin: Plugin = (input) => {
           cacheSketchiSession(context.sessionID, runResult.sessionId);
 
           const outputPath = args.outputPath
-            ? resolveOutputPath(args.outputPath, context.directory)
-            : buildDefaultPngPath("diagram-generate", context.directory);
+            ? resolveOutputPath(
+                args.outputPath,
+                context.directory,
+                context.sessionID,
+                {
+                  allowUnsafeOutputPath: ALLOW_UNSAFE_OUTPUT_PATH,
+                }
+              )
+            : buildDefaultPngPath(
+                "diagram-generate",
+                context.directory,
+                context.sessionID
+              );
 
           try {
             if (SKIP_PNG_RENDER) {
@@ -554,7 +569,9 @@ export const SketchiPlugin: Plugin = (input) => {
           outputPath: tool.schema
             .string()
             .optional()
-            .describe("Optional PNG output path"),
+            .describe(
+              "Optional PNG output path under .sketchi/sessions/<sessionID>/png (set SKETCHI_ALLOW_UNSAFE_OUTPUT_PATH=1 to allow paths outside this root)"
+            ),
           scale: tool.schema
             .number()
             .optional()
@@ -638,8 +655,19 @@ export const SketchiPlugin: Plugin = (input) => {
           cacheSketchiSession(context.sessionID, runResult.sessionId);
 
           const outputPath = args.outputPath
-            ? resolveOutputPath(args.outputPath, context.directory)
-            : buildDefaultPngPath("diagram-tweak", context.directory);
+            ? resolveOutputPath(
+                args.outputPath,
+                context.directory,
+                context.sessionID,
+                {
+                  allowUnsafeOutputPath: ALLOW_UNSAFE_OUTPUT_PATH,
+                }
+              )
+            : buildDefaultPngPath(
+                "diagram-tweak",
+                context.directory,
+                context.sessionID
+              );
 
           try {
             if (SKIP_PNG_RENDER) {
@@ -750,7 +778,9 @@ export const SketchiPlugin: Plugin = (input) => {
           outputPath: tool.schema
             .string()
             .optional()
-            .describe("Optional PNG output path"),
+            .describe(
+              "Optional PNG output path under .sketchi/sessions/<sessionID>/png (set SKETCHI_ALLOW_UNSAFE_OUTPUT_PATH=1 to allow paths outside this root)"
+            ),
           scale: tool.schema
             .number()
             .optional()
@@ -834,8 +864,19 @@ export const SketchiPlugin: Plugin = (input) => {
           cacheSketchiSession(context.sessionID, runResult.sessionId);
 
           const outputPath = args.outputPath
-            ? resolveOutputPath(args.outputPath, context.directory)
-            : buildDefaultPngPath("diagram-restructure", context.directory);
+            ? resolveOutputPath(
+                args.outputPath,
+                context.directory,
+                context.sessionID,
+                {
+                  allowUnsafeOutputPath: ALLOW_UNSAFE_OUTPUT_PATH,
+                }
+              )
+            : buildDefaultPngPath(
+                "diagram-restructure",
+                context.directory,
+                context.sessionID
+              );
 
           try {
             if (SKIP_PNG_RENDER) {
@@ -929,7 +970,9 @@ export const SketchiPlugin: Plugin = (input) => {
           outputPath: tool.schema
             .string()
             .optional()
-            .describe("Optional PNG output path"),
+            .describe(
+              "Optional PNG output path under .sketchi/sessions/<sessionID>/png (set SKETCHI_ALLOW_UNSAFE_OUTPUT_PATH=1 to allow paths outside this root)"
+            ),
           scale: tool.schema
             .number()
             .optional()
@@ -957,8 +1000,19 @@ export const SketchiPlugin: Plugin = (input) => {
           }
 
           const outputPath = args.outputPath
-            ? resolveOutputPath(args.outputPath, context.directory)
-            : buildDefaultPngPath("diagram-to-png", context.directory);
+            ? resolveOutputPath(
+                args.outputPath,
+                context.directory,
+                context.sessionID,
+                {
+                  allowUnsafeOutputPath: ALLOW_UNSAFE_OUTPUT_PATH,
+                }
+              )
+            : buildDefaultPngPath(
+                "diagram-to-png",
+                context.directory,
+                context.sessionID
+              );
 
           try {
             let shareLink:
@@ -1059,7 +1113,9 @@ export const SketchiPlugin: Plugin = (input) => {
           outputPath: tool.schema
             .string()
             .optional()
-            .describe("Optional path to write PNG (if generated)"),
+            .describe(
+              "Optional path to write PNG under .sketchi/sessions/<sessionID>/png (set SKETCHI_ALLOW_UNSAFE_OUTPUT_PATH=1 to allow paths outside this root)"
+            ),
           scale: tool.schema
             .number()
             .optional()
@@ -1106,6 +1162,7 @@ export const SketchiPlugin: Plugin = (input) => {
                   padding: args.padding,
                   background: args.background,
                 },
+                allowUnsafeOutputPath: ALLOW_UNSAFE_OUTPUT_PATH,
                 apiBase,
                 baseDir: context.directory,
                 abort: context.abort,

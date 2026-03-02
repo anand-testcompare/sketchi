@@ -45,6 +45,7 @@ When this plugin is loaded, it registers a `sketchi-diagram` subagent (without d
 Optional env override:
 
 - `SKETCHI_API_URL` (defaults to `https://sketchi.app`)
+- `SKETCHI_ALLOW_UNSAFE_OUTPUT_PATH=1` to opt out of default output-path containment (power users only)
 
 Authentication is required for diagram APIs. In OpenCode, select auth provider `sketchi`:
 
@@ -54,6 +55,21 @@ Authentication is required for diagram APIs. In OpenCode, select auth provider `
 Optional env-based auth fallback (used when OpenCode auth is not configured):
 
 - `SKETCHI_ACCESS_TOKEN` or `SKETCHI_BEARER_TOKEN` (OAuth bearer token)
+
+## Output Paths
+
+PNG outputs are session-scoped by default:
+
+- root: `/.sketchi/sessions/<opencode-session-id>/png/`
+- auto-generated files (`diagram_from_prompt`, `diagram_tweak`, `diagram_restructure`, `diagram_to_png`, `diagram_grade`) are written under this root
+- tool-provided `outputPath` values are constrained to this root by default
+
+Examples:
+
+- `outputPath: "foo.png"` -> `/.sketchi/sessions/<sessionID>/png/foo.png`
+- `outputPath: "exports/foo.png"` -> `/.sketchi/sessions/<sessionID>/png/exports/foo.png`
+
+Traversal attempts and absolute paths outside the session root are rejected unless `SKETCHI_ALLOW_UNSAFE_OUTPUT_PATH=1` is set.
 
 ## Testing
 
