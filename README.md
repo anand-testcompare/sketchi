@@ -188,6 +188,7 @@ Notes:
   - `npx playwright install`
 - Override API base with `SKETCHI_API_URL`.
 - Tools exposed: `diagram_from_prompt`, `diagram_tweak`, `diagram_restructure`, `diagram_to_png`, `diagram_grade`.
+- Publish channels: `next` is used for pre-release iteration testing; `latest` publishes when the plugin release PR is merged.
 - Install and use from any repo:
 ```bash
 npm i @sketchi-app/opencode-excalidraw
