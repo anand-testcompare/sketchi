@@ -17,6 +17,7 @@ interface FeatureCardProps {
     dark?: string;
     alt: string;
   };
+  showStatus?: boolean;
   status: FeatureStatus;
   statusLabel?: string;
   title: string;
@@ -81,6 +82,7 @@ function FeatureCardContent({
   screenshot,
   isClickable,
   isExternal,
+  showStatus = true,
 }: FeatureCardProps & { isClickable: boolean; isExternal: boolean }) {
   return (
     <>
@@ -114,7 +116,9 @@ function FeatureCardContent({
             </div>
             <h2 className="font-medium text-base tracking-tight">{title}</h2>
           </div>
-          <StatusBadge label={statusLabel} status={status} />
+          {showStatus ? (
+            <StatusBadge label={statusLabel} status={status} />
+          ) : null}
         </div>
 
         <p className="flex-1 text-muted-foreground text-sm leading-relaxed">
@@ -190,6 +194,7 @@ export default function Home() {
       description:
         "Transform SVG icons into hand-drawn Excalidraw assets. Upload, customize styles, and export production-ready .excalidrawlib files.",
       status: "available",
+      showStatus: false,
       href: "/library-generator",
       icon: <Wand2 className="size-5" />,
       screenshot: {
@@ -202,6 +207,7 @@ export default function Home() {
       description:
         "Convert natural language into flowcharts, architecture diagrams, and more. Powered by AI with automatic layout and hand-drawn aesthetics.",
       status: "alpha",
+      showStatus: false,
       href: "/diagrams",
       icon: <Sparkles className="size-5" />,
       screenshot: {

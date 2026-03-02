@@ -22,6 +22,10 @@ const styleSettings = v.object({
 
 const userRole = v.union(v.literal("user"), v.literal("admin"));
 const libraryVisibility = v.union(v.literal("public"), v.literal("private"));
+const diagramSessionSource = v.union(
+  v.literal("sketchi"),
+  v.literal("opencode")
+);
 const threadRunStatus = v.union(
   v.literal("sending"),
   v.literal("running"),
@@ -84,6 +88,12 @@ export default defineSchema({
   diagramSessions: defineTable({
     sessionId: v.string(),
     ownerUserId: v.optional(v.id("users")),
+    title: v.optional(v.string()),
+    titleEditedAt: v.optional(v.number()),
+    source: v.optional(diagramSessionSource),
+    firstPrompt: v.optional(v.string()),
+    lastPrompt: v.optional(v.string()),
+    diagramType: v.optional(v.string()),
     latestScene: v.optional(
       v.object({
         elements: v.array(v.any()),
@@ -96,7 +106,8 @@ export default defineSchema({
     threadId: v.optional(v.string()),
   })
     .index("by_sessionId", ["sessionId"])
-    .index("by_ownerUserId", ["ownerUserId"]),
+    .index("by_ownerUserId", ["ownerUserId"])
+    .index("by_owner_updatedAt", ["ownerUserId", "updatedAt"]),
   diagramThreadRuns: defineTable({
     sessionId: v.string(),
     threadId: v.string(),

@@ -5,6 +5,15 @@ import { internalMutation, mutation, query } from "./_generated/server";
 import { ensureViewerUser, getViewerWithUser } from "./lib/users";
 
 const MAX_SCENE_BYTES = 900_000;
+const MAX_LIST_LIMIT = 100;
+const MAX_PREVIEW_COUNT = 3;
+const MAX_PREVIEW_ELEMENTS = 180;
+const MAX_TITLE_LENGTH = 80;
+const DEFAULT_DIAGRAM_TITLE = "Untitled diagram";
+const diagramSessionSource = v.union(
+  v.literal("sketchi"),
+  v.literal("opencode")
+);
 
 const STRIPPED_APP_STATE_KEYS = [
   "selectedElementIds",
@@ -48,6 +57,15 @@ function filterAppState(
     delete filtered[key];
   }
   return filtered;
+}
+
+function hasRenderableElements(elements: unknown[]): boolean {
+  return elements.some((element) => {
+    if (!(element && typeof element === "object")) {
+      return false;
+    }
+    return (element as { isDeleted?: unknown }).isDeleted !== true;
+  });
 }
 
 function measureSceneBytes(scene: {
@@ -95,17 +113,47 @@ function validateSceneSize(scene: { elements: unknown[]; appState: unknown }):
   };
 }
 
+function truncate(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return value.slice(0, maxLength);
+}
+
+function normalizeWhitespace(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function normalizeSessionTitle(input: string | null | undefined): string {
+  const normalized = normalizeWhitespace(input ?? "");
+  if (!normalized) {
+    return DEFAULT_DIAGRAM_TITLE;
+  }
+  return truncate(normalized, MAX_TITLE_LENGTH);
+}
+
 export const create = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    source: v.optional(diagramSessionSource),
+    title: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
     const { user } = await ensureViewerUser(ctx);
     const sessionId = await getUniqueSessionId(ctx);
     const threadId = generateThreadId();
     const now = Date.now();
+    const source = args.source ?? "sketchi";
+    const title = normalizeSessionTitle(args.title);
 
     await ctx.db.insert("diagramSessions", {
       sessionId,
       ownerUserId: user._id,
+      source,
+      title,
+      titleEditedAt: args.title ? now : undefined,
+      firstPrompt: undefined,
+      lastPrompt: undefined,
+      diagramType: undefined,
       latestScene: undefined,
       latestSceneVersion: 0,
       createdAt: now,
@@ -172,11 +220,108 @@ export const get = query({
     return {
       sessionId: session.sessionId,
       ownerUserId: session.ownerUserId ?? null,
+      title: normalizeSessionTitle(session.title),
+      source: session.source ?? "sketchi",
+      firstPrompt: session.firstPrompt ?? null,
+      lastPrompt: session.lastPrompt ?? null,
+      diagramType: session.diagramType ?? null,
       latestScene: session.latestScene ?? null,
       latestSceneVersion: session.latestSceneVersion,
       threadId: session.threadId ?? null,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
+    };
+  },
+});
+
+export const listMine = query({
+  args: {
+    limit: v.optional(v.number()),
+    previewCount: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const { user } = await getViewerWithUser(ctx);
+    if (!user) {
+      return [];
+    }
+
+    const limit = Math.max(1, Math.min(args.limit ?? 50, MAX_LIST_LIMIT));
+    const previewCount = Math.max(
+      0,
+      Math.min(args.previewCount ?? 0, MAX_PREVIEW_COUNT)
+    );
+
+    const sessions = await ctx.db
+      .query("diagramSessions")
+      .withIndex("by_owner_updatedAt", (q) => q.eq("ownerUserId", user._id))
+      .order("desc")
+      .take(limit);
+
+    return sessions.map((session, index) => {
+      const includePreview = index < previewCount;
+      const previewScene =
+        includePreview && session.latestScene
+          ? {
+              elements: session.latestScene.elements.slice(
+                0,
+                MAX_PREVIEW_ELEMENTS
+              ),
+              appState: session.latestScene.appState,
+            }
+          : null;
+
+      return {
+        sessionId: session.sessionId,
+        title: normalizeSessionTitle(session.title),
+        source: session.source ?? "sketchi",
+        firstPrompt: session.firstPrompt ?? null,
+        lastPrompt: session.lastPrompt ?? null,
+        diagramType: session.diagramType ?? null,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+        latestSceneVersion: session.latestSceneVersion,
+        hasScene: Boolean(session.latestScene),
+        hasRenderableContent: session.latestScene
+          ? hasRenderableElements(session.latestScene.elements)
+          : false,
+        previewScene,
+      };
+    });
+  },
+});
+
+export const rename = mutation({
+  args: {
+    sessionId: v.string(),
+    title: v.string(),
+  },
+  handler: async (ctx, { sessionId, title }) => {
+    const { user, isAdmin } = await ensureViewerUser(ctx);
+
+    const session = await ctx.db
+      .query("diagramSessions")
+      .withIndex("by_sessionId", (q) => q.eq("sessionId", sessionId))
+      .unique();
+
+    if (!session) {
+      throw new Error("Session not found");
+    }
+
+    if (session.ownerUserId && session.ownerUserId !== user._id && !isAdmin) {
+      throw new Error("Forbidden");
+    }
+
+    const now = Date.now();
+    const normalizedTitle = normalizeSessionTitle(title);
+    await ctx.db.patch(session._id, {
+      title: normalizedTitle,
+      titleEditedAt: now,
+      updatedAt: now,
+    });
+
+    return {
+      title: normalizedTitle,
+      updatedAt: now,
     };
   },
 });
@@ -249,10 +394,11 @@ export const internalSetLatestSceneFromThreadRun = internalMutation({
     expectedVersion: v.number(),
     elements: v.array(v.any()),
     appState: v.record(v.string(), v.any()),
+    diagramType: v.optional(v.string()),
   },
   handler: async (
     ctx,
-    { sessionId, ownerUserId, expectedVersion, elements, appState }
+    { sessionId, ownerUserId, expectedVersion, elements, appState, diagramType }
   ) => {
     const session = await ctx.db
       .query("diagramSessions")
@@ -299,6 +445,7 @@ export const internalSetLatestSceneFromThreadRun = internalMutation({
       ownerUserId: session.ownerUserId ?? ownerUserId,
       latestScene: sizeChecked.scene,
       latestSceneVersion: newVersion,
+      ...(diagramType ? { diagramType: truncate(diagramType, 64) } : {}),
       updatedAt: now,
     });
 

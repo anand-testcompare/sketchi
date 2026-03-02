@@ -22,6 +22,15 @@ const HEX_32_PATTERN = /^[0-9a-f]{32}$/;
 const THREAD_32_PATTERN = /^thread_[0-9a-f]{32}$/;
 
 describe("diagramSessions", () => {
+  test("listMine returns empty array for authed user before first session", async () => {
+    const listed = await authed.query(api.diagramSessions.listMine, {
+      limit: 10,
+      previewCount: 3,
+    });
+
+    expect(listed).toEqual([]);
+  });
+
   test("create -> get returns empty scene with version 0", async () => {
     const { sessionId, threadId } = await authed.mutation(
       api.diagramSessions.create,
@@ -209,5 +218,97 @@ describe("diagramSessions", () => {
         appState: {},
       })
     ).rejects.toThrow("Session not found");
+  });
+
+  test("create stores source + title and listMine returns summaries", async () => {
+    const first = await authed.mutation(api.diagramSessions.create, {
+      source: "sketchi",
+    });
+    await authed.mutation(api.diagramSessions.setLatestScene, {
+      sessionId: first.sessionId,
+      expectedVersion: 0,
+      elements: [{ id: "first-1", type: "rectangle", x: 0, y: 0 }],
+      appState: {},
+    });
+
+    const second = await authed.mutation(api.diagramSessions.create, {
+      source: "opencode",
+      title: "Backend flow",
+    });
+    await authed.mutation(api.diagramSessions.setLatestScene, {
+      sessionId: second.sessionId,
+      expectedVersion: 0,
+      elements: [{ id: "second-1", type: "ellipse", x: 10, y: 20 }],
+      appState: {},
+    });
+
+    const listed = await authed.query(api.diagramSessions.listMine, {
+      limit: 10,
+      previewCount: 1,
+    });
+
+    expect(listed.length).toBeGreaterThanOrEqual(2);
+    const byId = new Map(listed.map((item) => [item.sessionId, item]));
+
+    expect(byId.get(second.sessionId)?.source).toBe("opencode");
+    expect(byId.get(second.sessionId)?.title).toBe("Backend flow");
+    expect(byId.get(second.sessionId)?.hasRenderableContent).toBe(true);
+    expect(byId.get(first.sessionId)?.source).toBe("sketchi");
+    expect(byId.get(first.sessionId)?.title).toBe("Untitled diagram");
+    expect(byId.get(first.sessionId)?.hasRenderableContent).toBe(true);
+
+    const previewedCount = listed.filter((item) => item.previewScene).length;
+    expect(previewedCount).toBe(1);
+  });
+
+  test("listMine marks sessions with no visible elements as empty", async () => {
+    const noScene = await authed.mutation(api.diagramSessions.create, {
+      title: "No scene yet",
+    });
+    const deletedOnly = await authed.mutation(api.diagramSessions.create, {
+      title: "Deleted only",
+    });
+
+    await authed.mutation(api.diagramSessions.setLatestScene, {
+      sessionId: deletedOnly.sessionId,
+      expectedVersion: 0,
+      elements: [
+        {
+          id: "deleted-1",
+          type: "rectangle",
+          isDeleted: true,
+          x: 0,
+          y: 0,
+        },
+      ],
+      appState: {},
+    });
+
+    const listed = await authed.query(api.diagramSessions.listMine, {
+      limit: 10,
+      previewCount: 0,
+    });
+    const byId = new Map(listed.map((item) => [item.sessionId, item]));
+
+    expect(byId.get(noScene.sessionId)?.hasScene).toBe(false);
+    expect(byId.get(noScene.sessionId)?.hasRenderableContent).toBe(false);
+
+    expect(byId.get(deletedOnly.sessionId)?.hasScene).toBe(true);
+    expect(byId.get(deletedOnly.sessionId)?.hasRenderableContent).toBe(false);
+  });
+
+  test("rename updates session title", async () => {
+    const { sessionId } = await authed.mutation(api.diagramSessions.create, {});
+
+    const renamed = await authed.mutation(api.diagramSessions.rename, {
+      sessionId,
+      title: "Quarterly architecture map",
+    });
+
+    expect(renamed.title).toBe("Quarterly architecture map");
+    expect(renamed.updatedAt).toBeGreaterThan(0);
+
+    const session = await authed.query(api.diagramSessions.get, { sessionId });
+    expect(session?.title).toBe("Quarterly architecture map");
   });
 });
