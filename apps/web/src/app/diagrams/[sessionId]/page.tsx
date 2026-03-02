@@ -24,10 +24,9 @@ import {
 import { ImportExportToolbar } from "@/components/diagram-studio/import-export-toolbar";
 import { sanitizeAppState } from "@/components/diagram-studio/sanitize-app-state";
 import { Button } from "@/components/ui/button";
+import { addDiagramRecent } from "@/lib/diagram-recents";
 
 const AUTOSAVE_DELAY_MS = 2000;
-const RECENTS_KEY = "sketchi.diagramRecents.v1";
-const RECENTS_MAX = 10;
 const COMPLETION_PULSE_MS = 1500;
 const STOP_RETRY_DELAYS_MS = [220, 380, 620];
 
@@ -55,44 +54,6 @@ interface RunState {
   promptMessageId: string;
   status: RunStatus;
   stopRequested: boolean;
-}
-
-function writeDiagramRecent(sessionId: string) {
-  if (typeof window === "undefined") {
-    return;
-  }
-  try {
-    let recents: Array<{ sessionId: string; visitedAt: number }> = [];
-    try {
-      const raw = localStorage.getItem(RECENTS_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          recents = parsed.filter(
-            (item): item is { sessionId: string; visitedAt: number } =>
-              typeof item === "object" &&
-              item !== null &&
-              typeof item.sessionId === "string" &&
-              typeof item.visitedAt === "number"
-          );
-        }
-      }
-    } catch {
-      recents = [];
-    }
-
-    const filtered = recents.filter((recent) => recent.sessionId !== sessionId);
-    filtered.unshift({ sessionId, visitedAt: Date.now() });
-    const capped = filtered.slice(0, RECENTS_MAX);
-
-    try {
-      localStorage.setItem(RECENTS_KEY, JSON.stringify(capped));
-    } catch {
-      // quota exceeded
-    }
-  } catch {
-    // localStorage unavailable
-  }
 }
 
 function createOptimisticUserMessage(input: {
@@ -178,7 +139,7 @@ export default function DiagramStudioPage() {
 
   useEffect(() => {
     if (sessionId) {
-      writeDiagramRecent(sessionId);
+      addDiagramRecent(sessionId);
     }
   }, [sessionId]);
 
@@ -623,7 +584,7 @@ export default function DiagramStudioPage() {
     }
     setIsCreating(true);
     try {
-      const { sessionId: newId } = await createSession();
+      const { sessionId: newId } = await createSession({ source: "sketchi" });
       router.push(`/diagrams/${newId}` as never);
     } catch {
       // user can retry

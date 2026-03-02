@@ -246,7 +246,7 @@ async function ensureSessionForThreadRun(input: {
 
   const created = await input.context.convex.mutation(
     api.diagramSessions.create,
-    {}
+    { source: "opencode" }
   );
   return {
     sessionId: created.sessionId,
@@ -855,7 +855,7 @@ export const appRouter = {
         } else {
           const created = await context.convex.mutation(
             api.diagramSessions.create,
-            {}
+            { source: "opencode" }
           );
           sessionId = created.sessionId;
           threadId = created.threadId;

@@ -1,128 +1,194 @@
 "use client";
 
 import { api } from "@sketchi/backend/convex/_generated/api";
-import { useMutation } from "convex/react";
-import {
-  ArrowRight,
-  Clock,
-  ExternalLink,
-  PenTool,
-  Save,
-  Share2,
-  ShieldAlert,
-  Sparkles,
-  Trash2,
-  Wand2,
-  X,
-} from "lucide-react";
-import Link from "next/link";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { ArrowRight, Clock, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import {
+  type DiagramListCard,
+  DiagramListItem,
+  type DiagramListSource,
+} from "@/components/diagram-studio/diagram-list-item";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import {
+  addDiagramRecent,
+  clearDiagramRecents,
+  type DiagramRecent,
+  readDiagramRecents,
+  removeDiagramRecent,
+} from "@/lib/diagram-recents";
 
-const RECENTS_KEY = "sketchi.diagramRecents.v1";
-const MAX_RECENTS = 10;
+type SessionSource = "opencode" | "sketchi";
 
-interface RecentDiagram {
+interface SessionPreview {
+  appState: Record<string, unknown>;
+  elements: Record<string, unknown>[];
+}
+
+interface CloudDiagram {
+  createdAt: number;
+  diagramType: string | null;
+  firstPrompt: string | null;
+  hasRenderableContent: boolean;
+  hasScene: boolean;
+  lastPrompt: string | null;
+  latestSceneVersion: number;
+  previewScene: SessionPreview | null;
   sessionId: string;
-  visitedAt: number;
+  source: SessionSource;
+  title: string;
+  updatedAt: number;
 }
 
-function readRecents(): RecentDiagram[] {
-  if (typeof window === "undefined") {
+function asCloudDiagramArray(value: unknown): CloudDiagram[] {
+  if (!Array.isArray(value)) {
     return [];
   }
-  try {
-    const raw = localStorage.getItem(RECENTS_KEY);
-    if (!raw) {
-      return [];
+
+  return value.filter((item): item is CloudDiagram => {
+    if (!(item && typeof item === "object")) {
+      return false;
     }
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      return [];
+
+    const candidate = item as CloudDiagram;
+    return (
+      typeof candidate.sessionId === "string" &&
+      typeof candidate.title === "string" &&
+      (candidate.source === "sketchi" || candidate.source === "opencode") &&
+      typeof candidate.createdAt === "number" &&
+      typeof candidate.updatedAt === "number" &&
+      typeof candidate.latestSceneVersion === "number" &&
+      typeof candidate.hasScene === "boolean" &&
+      typeof candidate.hasRenderableContent === "boolean"
+    );
+  });
+}
+
+function isEmptyCard(item: DiagramListCard): boolean {
+  if (item.localOnly) {
+    return false;
+  }
+  if (!item.hasScene) {
+    return true;
+  }
+  return item.hasRenderableContent === false;
+}
+
+function mergeCards(input: {
+  cloudDiagrams: CloudDiagram[];
+  localRecents: DiagramRecent[];
+}): DiagramListCard[] {
+  const localBySession = new Map(
+    input.localRecents.map((recent) => [recent.sessionId, recent.visitedAt])
+  );
+
+  const merged = new Map<string, DiagramListCard>();
+
+  for (const session of input.cloudDiagrams) {
+    merged.set(session.sessionId, {
+      context: session.lastPrompt ?? session.firstPrompt,
+      createdAt: session.createdAt,
+      diagramType: session.diagramType,
+      hasRenderableContent: session.hasRenderableContent,
+      hasScene: session.hasScene,
+      latestSceneVersion: session.latestSceneVersion,
+      localOnly: false,
+      previewScene: session.previewScene,
+      sessionId: session.sessionId,
+      source: session.source as DiagramListSource,
+      title: session.title,
+      updatedAt: session.updatedAt,
+      visitedAt: localBySession.get(session.sessionId) ?? null,
+    });
+  }
+
+  for (const local of input.localRecents) {
+    if (merged.has(local.sessionId)) {
+      continue;
     }
-    return parsed
-      .filter(
-        (item): item is RecentDiagram =>
-          typeof item === "object" &&
-          item !== null &&
-          typeof (item as RecentDiagram).sessionId === "string" &&
-          typeof (item as RecentDiagram).visitedAt === "number"
-      )
-      .slice(0, MAX_RECENTS);
-  } catch {
-    return [];
-  }
-}
 
-function writeRecents(recents: RecentDiagram[]): void {
-  try {
-    localStorage.setItem(RECENTS_KEY, JSON.stringify(recents));
-  } catch {
-    // Quota error — ignore
+    merged.set(local.sessionId, {
+      context: null,
+      createdAt: null,
+      diagramType: null,
+      hasRenderableContent: null,
+      hasScene: false,
+      latestSceneVersion: null,
+      localOnly: true,
+      previewScene: null,
+      sessionId: local.sessionId,
+      source: "local",
+      title: "Local recent",
+      updatedAt: null,
+      visitedAt: local.visitedAt,
+    });
   }
-}
 
-function relativeTime(timestamp: number): string {
-  const seconds = Math.floor((Date.now() - timestamp) / 1000);
-  if (seconds < 60) {
-    return "just now";
-  }
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) {
-    return `${minutes}m ago`;
-  }
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) {
-    return `${hours}h ago`;
-  }
-  const days = Math.floor(hours / 24);
-  if (days < 30) {
-    return `${days}d ago`;
-  }
-  const months = Math.floor(days / 30);
-  return `${months}mo ago`;
+  return Array.from(merged.values()).sort((left, right) => {
+    const leftSort = Math.max(left.updatedAt ?? 0, left.visitedAt ?? 0);
+    const rightSort = Math.max(right.updatedAt ?? 0, right.visitedAt ?? 0);
+    return rightSort - leftSort;
+  });
 }
-
-const FEATURES = [
-  {
-    icon: <Sparkles className="size-3.5" />,
-    label: "AI-powered restructuring via chat sidebar",
-  },
-  {
-    icon: <Save className="size-3.5" />,
-    label: "Auto-save with version history and conflict resolution",
-  },
-  {
-    icon: <Share2 className="size-3.5" />,
-    label: "Signed-in sessions with sharable URLs",
-  },
-  {
-    icon: <Wand2 className="size-3.5" />,
-    label: "Import/export Excalidraw, PNG, and JSON",
-  },
-];
 
 export default function DiagramsPage() {
   const router = useRouter();
+  const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
   const createSession = useMutation(api.diagramSessions.create);
+  const renameSession = useMutation(api.diagramSessions.rename);
+
+  const sessionsRaw = useQuery(
+    api.diagramSessions.listMine,
+    isAuthLoading || !isAuthenticated
+      ? "skip"
+      : {
+          limit: 80,
+          previewCount: 3,
+        }
+  );
+
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
   const [isCreating, setIsCreating] = useState(false);
-  const [recents, setRecents] = useState<RecentDiagram[]>([]);
+  const [hideEmpty, setHideEmpty] = useState(true);
+  const [isSavingTitle, setIsSavingTitle] = useState(false);
+  const [localRecents, setLocalRecents] = useState<DiagramRecent[]>([]);
 
   useEffect(() => {
-    setRecents(readRecents());
+    setLocalRecents(readDiagramRecents());
   }, []);
 
-  const handleCreate = async () => {
+  const cloudDiagrams = useMemo(
+    () => asCloudDiagramArray(sessionsRaw ?? []),
+    [sessionsRaw]
+  );
+
+  const cards = useMemo(
+    () => mergeCards({ cloudDiagrams, localRecents }),
+    [cloudDiagrams, localRecents]
+  );
+  const visibleCards = useMemo(
+    () => (hideEmpty ? cards.filter((card) => !isEmptyCard(card)) : cards),
+    [cards, hideEmpty]
+  );
+  const hiddenEmptyCount = cards.length - visibleCards.length;
+  const onlyEmptyHidden =
+    hideEmpty && cards.length > 0 && visibleCards.length < 1;
+
+  const handleCreate = useCallback(async () => {
     if (isCreating) {
       return;
     }
-    setIsCreating(true);
 
+    setIsCreating(true);
     try {
-      const { sessionId } = await createSession();
+      const { sessionId } = await createSession({ source: "sketchi" });
+      addDiagramRecent(sessionId);
       router.push(`/diagrams/${sessionId}` as never);
     } catch (error) {
       const message =
@@ -133,171 +199,163 @@ export default function DiagramsPage() {
     } finally {
       setIsCreating(false);
     }
-  };
+  }, [createSession, isCreating, router]);
 
-  const handleRemoveRecent = useCallback(
-    (sessionId: string) => {
-      const next = recents.filter((r) => r.sessionId !== sessionId);
-      setRecents(next);
-      writeRecents(next);
+  const handleSaveRename = useCallback(
+    async (sessionId: string) => {
+      const nextTitle = editingTitle.trim();
+      if (!nextTitle) {
+        toast.error("Title cannot be empty.");
+        return;
+      }
+
+      setIsSavingTitle(true);
+      try {
+        await renameSession({ sessionId, title: nextTitle });
+        setEditingSessionId(null);
+        setEditingTitle("");
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to rename diagram.";
+        toast.error(message);
+      } finally {
+        setIsSavingTitle(false);
+      }
     },
-    [recents]
+    [editingTitle, renameSession]
   );
 
-  const handleClearAll = useCallback(() => {
-    setRecents([]);
-    writeRecents([]);
+  const handleStartRename = useCallback((item: DiagramListCard) => {
+    if (item.localOnly) {
+      return;
+    }
+
+    setEditingSessionId(item.sessionId);
+    setEditingTitle(item.title);
   }, []);
 
-  const hasRecents = recents.length > 0;
+  const handleCancelRename = useCallback(() => {
+    setEditingSessionId(null);
+    setEditingTitle("");
+  }, []);
+
+  const handleOpen = useCallback((sessionId: string) => {
+    addDiagramRecent(sessionId);
+  }, []);
+
+  const handleClearLocalRecents = useCallback(() => {
+    clearDiagramRecents();
+    setLocalRecents([]);
+  }, []);
+
+  const handleRemoveLocalRecent = useCallback((sessionId: string) => {
+    const next = removeDiagramRecent(sessionId);
+    setLocalRecents(next);
+  }, []);
 
   return (
-    <div className="container mx-auto flex w-full max-w-3xl flex-col gap-10 px-4 py-10 sm:py-14">
-      <header className="flex flex-col gap-3">
-        <h1 className="font-semibold text-2xl tracking-tight sm:text-3xl">
-          AI Diagram Studio
-        </h1>
-        <p className="max-w-lg text-muted-foreground text-sm leading-relaxed">
-          Create, restructure, and share diagrams on a collaborative Excalidraw
-          canvas. Each session auto-saves and produces a unique URL you can
-          share with anyone.
-        </p>
-      </header>
-
-      <ul className="grid gap-4 sm:grid-cols-2">
-        {FEATURES.map((f) => (
-          <li className="flex items-start gap-3 text-sm" key={f.label}>
-            <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-foreground/5 p-1 text-foreground/70 shadow-sm transition-colors hover:bg-foreground/10 hover:text-foreground">
-              {f.icon}
-            </span>
-            <span className="pt-1 text-muted-foreground">{f.label}</span>
-          </li>
-        ))}
-      </ul>
-
-      <section className="flex flex-col items-start gap-4 rounded-2xl border-2 border-foreground/10 bg-card p-6 shadow-sm transition-all hover:border-foreground/25 hover:shadow-md">
-        <div className="flex items-center gap-3.5">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary shadow-sm">
-            <PenTool className="size-5" />
-          </div>
-          <div>
-            <h2 className="font-semibold text-base">Start a new diagram</h2>
-            <p className="text-muted-foreground text-sm">
-              Opens an Excalidraw canvas with AI restructure, autosave, and
-              import/export.
-            </p>
-          </div>
+    <div className="container mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-8 sm:py-10">
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="font-semibold text-2xl tracking-tight sm:text-3xl">
+            Diagrams
+          </h1>
+          <p className="text-muted-foreground text-sm">
+            Jump back into any diagram.
+          </p>
         </div>
+
         <Button
-          className="mt-1 font-semibold shadow-sm transition-transform [border-radius:255px_15px_225px_15px/15px_225px_15px_255px] hover:-translate-y-0.5"
+          className="font-semibold shadow-sm [border-radius:255px_15px_225px_15px/15px_225px_15px_255px]"
           data-testid="diagram-new-session"
           disabled={isCreating}
-          onClick={handleCreate}
+          onClick={() => {
+            handleCreate().catch(() => undefined);
+          }}
           size="default"
           type="button"
         >
           {isCreating ? "Creating..." : "New diagram"}
           <ArrowRight className="ml-1.5 size-4" />
         </Button>
-      </section>
+      </header>
 
-      <section className="flex flex-col gap-4">
-        <div className="flex items-baseline justify-between gap-4">
-          <h2 className="font-semibold text-base">Recent diagrams</h2>
-          {hasRecents && (
-            <Button
-              className="font-medium text-muted-foreground"
-              data-testid="diagram-recents-clear"
-              onClick={handleClearAll}
-              size="xs"
-              type="button"
-              variant="ghost"
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-semibold text-base">All diagrams</h2>
+          <div className="flex items-center gap-2">
+            <Label
+              className="cursor-pointer gap-1.5 rounded-md px-2 py-1 text-muted-foreground text-xs hover:bg-muted/50"
+              htmlFor="diagram-hide-empty-toggle"
             >
-              <Trash2 className="mr-1 size-3" />
-              Clear all
-            </Button>
-          )}
+              <Checkbox
+                checked={hideEmpty}
+                id="diagram-hide-empty-toggle"
+                onCheckedChange={(checked) => {
+                  setHideEmpty(checked === true);
+                }}
+              />
+              Hide empty
+            </Label>
+
+            {localRecents.length > 0 ? (
+              <Button
+                className="font-medium text-muted-foreground"
+                data-testid="diagram-recents-clear"
+                onClick={handleClearLocalRecents}
+                size="xs"
+                type="button"
+                variant="ghost"
+              >
+                <Trash2 className="mr-1 size-3" />
+                Clear local recents
+              </Button>
+            ) : null}
+          </div>
         </div>
 
-        <div className="flex items-start gap-2 rounded-xl border-2 border-border/80 bg-muted/30 px-4 py-3 shadow-sm">
-          <ShieldAlert className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-          <p className="text-muted-foreground text-sm leading-relaxed">
-            Session URLs are capability tokens and grant edit access to anyone
-            who has them. Share links carefully.
-          </p>
-        </div>
-
-        {hasRecents ? (
-          <ul
-            className="flex flex-col divide-y-2 divide-border rounded-2xl border-2 bg-card shadow-sm"
-            data-testid="diagram-recents-list"
-          >
-            {recents.map((r) => (
-              <RecentItem
-                key={r.sessionId}
-                onRemove={handleRemoveRecent}
-                recent={r}
+        {visibleCards.length > 0 ? (
+          <ul className="grid gap-3" data-testid="diagram-recents-list">
+            {visibleCards.map((item) => (
+              <DiagramListItem
+                editingTitle={editingTitle}
+                isEditing={editingSessionId === item.sessionId}
+                isSavingTitle={isSavingTitle}
+                item={item}
+                key={item.sessionId}
+                onCancelRename={handleCancelRename}
+                onEditingTitleChange={setEditingTitle}
+                onOpen={handleOpen}
+                onRemoveLocalRecent={handleRemoveLocalRecent}
+                onSaveRename={handleSaveRename}
+                onStartRename={handleStartRename}
               />
             ))}
           </ul>
         ) : (
           <div
-            className="flex flex-col items-center gap-2 rounded-2xl border-2 border-muted-foreground/30 border-dashed bg-muted/10 py-12 text-center"
+            className="flex flex-col items-center gap-2 rounded-2xl border-2 border-muted-foreground/30 border-dashed bg-muted/10 py-14 text-center"
             data-testid="diagram-recents-list"
           >
             <Clock className="size-6 text-muted-foreground/40" />
             <p className="font-medium text-muted-foreground text-sm">
-              No recent diagrams. Create one to get started.
+              {onlyEmptyHidden ? "No non-empty diagrams." : "No diagrams yet."}
             </p>
+            {onlyEmptyHidden ? (
+              <Button
+                className="font-medium"
+                onClick={() => setHideEmpty(false)}
+                size="xs"
+                type="button"
+                variant="outline"
+              >
+                Show {hiddenEmptyCount} empty diagram
+                {hiddenEmptyCount === 1 ? "" : "s"}
+              </Button>
+            ) : null}
           </div>
         )}
       </section>
     </div>
-  );
-}
-
-function RecentItem({
-  recent,
-  onRemove,
-}: {
-  recent: RecentDiagram;
-  onRemove: (sessionId: string) => void;
-}) {
-  const { sessionId, visitedAt } = recent;
-  const truncatedId = useMemo(() => {
-    return sessionId.length > 8 ? `${sessionId.slice(0, 8)}...` : sessionId;
-  }, [sessionId]);
-
-  const timeAgo = useMemo(() => relativeTime(visitedAt), [visitedAt]);
-
-  return (
-    <li
-      className="group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/50"
-      data-testid="diagram-recents-item"
-    >
-      <ExternalLink className="size-3.5 shrink-0 text-muted-foreground/60" />
-
-      <Link
-        className="flex min-w-0 flex-1 items-baseline gap-2 text-sm hover:underline"
-        href={`/diagrams/${sessionId}` as never}
-      >
-        <code className="font-mono text-foreground text-xs">{truncatedId}</code>
-        <span className="text-muted-foreground text-xs">{timeAgo}</span>
-      </Link>
-
-      <Button
-        className="text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
-        data-testid="diagram-recents-remove"
-        onClick={(e) => {
-          e.preventDefault();
-          onRemove(sessionId);
-        }}
-        size="icon-xs"
-        type="button"
-        variant="ghost"
-      >
-        <X className="size-3" />
-      </Button>
-    </li>
   );
 }

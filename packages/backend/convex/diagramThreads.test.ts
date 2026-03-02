@@ -171,4 +171,22 @@ describe("diagramThreads", () => {
     expect(run?.status).toBe("stopped");
     expect(run?.stopRequested).toBe(true);
   });
+
+  test("enqueuePrompt stamps session prompt metadata + default title", async () => {
+    const { sessionId } = await authed.mutation(api.diagramSessions.create, {});
+
+    await authed.mutation(api.diagramThreads.enqueuePrompt, {
+      sessionId,
+      prompt:
+        "Map the payment retry flow between client, api gateway, and ledger service.",
+      promptMessageId: "prompt-msg-meta",
+      traceId: "trace-thread-meta",
+    });
+
+    const session = await authed.query(api.diagramSessions.get, { sessionId });
+    expect(session).not.toBeNull();
+    expect(session?.firstPrompt).toContain("payment retry flow");
+    expect(session?.lastPrompt).toContain("payment retry flow");
+    expect(session?.title).toContain("Map the payment retry flow");
+  });
 });

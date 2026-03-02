@@ -70,6 +70,7 @@ interface RuntimeState {
     toolCallId: string;
     toolName: ToolName;
   } | null;
+  proposedDiagramType: string | null;
   proposedScene: SceneCandidate | null;
   reasoningBuffer: string;
   toolUsed: ToolUsed;
@@ -125,6 +126,14 @@ function coerceAppState(value: unknown): Record<string, unknown> {
     return value as Record<string, unknown>;
   }
   return {};
+}
+
+function coerceDiagramType(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
 }
 
 function isBlankScene(elements: Record<string, unknown>[]): boolean {
@@ -366,6 +375,9 @@ async function executeGenerateTool(input: {
       elements,
       appState: {},
     };
+    input.state.proposedDiagramType = coerceDiagramType(
+      generated.intermediate?.graphOptions?.diagramType
+    );
     input.state.toolUsed = "generate";
 
     await upsertToolMessage(input.ctx, {
@@ -527,6 +539,9 @@ async function executeRestructureTool(input: {
       elements,
       appState: sourceScene.appState,
     };
+    input.state.proposedDiagramType = coerceDiagramType(
+      parsed.data.graphOptions?.diagramType
+    );
     input.state.toolUsed = "restructure";
 
     await upsertToolMessage(input.ctx, {
@@ -648,6 +663,7 @@ async function executeTweakTool(input: {
       elements: result.elements as Record<string, unknown>[],
       appState: coerceAppState(result.appState),
     };
+    input.state.proposedDiagramType = null;
     input.state.toolUsed = "tweak";
 
     await upsertToolMessage(input.ctx, {
@@ -1001,6 +1017,7 @@ async function loadRunContext(
 
 async function applySceneFromRun(input: {
   ctx: ActionCtx;
+  diagramType: string | null;
   run: RunDoc;
   scene: SceneCandidate;
   session: Doc<"diagramSessions">;
@@ -1013,6 +1030,7 @@ async function applySceneFromRun(input: {
       expectedVersion: input.session.latestSceneVersion,
       elements: input.scene.elements,
       appState: input.scene.appState,
+      diagramType: input.diagramType ?? undefined,
     }
   )) as ApplySceneResult;
 }
@@ -1046,6 +1064,7 @@ export const processRun = internalAction({
       assistantContent: "",
       reasoningBuffer: "",
       lastFlushAt: 0,
+      proposedDiagramType: null,
       proposedScene: null,
       toolUsed: null,
       aborted: false,
@@ -1150,6 +1169,7 @@ export const processRun = internalAction({
 
       const applyResult = await applySceneFromRun({
         ctx,
+        diagramType: state.proposedDiagramType,
         run,
         session,
         scene: state.proposedScene,

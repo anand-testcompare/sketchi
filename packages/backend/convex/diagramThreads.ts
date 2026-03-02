@@ -14,9 +14,38 @@ import { createTraceId } from "./lib/trace";
 import { ensureViewerUser, getViewerWithUser } from "./lib/users";
 
 type SessionLike = Doc<"diagramSessions">;
+const DEFAULT_DIAGRAM_TITLE = "Untitled diagram";
+const MAX_PROMPT_SNIPPET_LENGTH = 300;
+const MAX_TITLE_LENGTH = 80;
+const PROMPT_SENTENCE_SPLIT_PATTERN = /(?<=[.!?])\s+/;
 
 function normalizePrompt(prompt: string): string {
   return prompt.trim();
+}
+
+function normalizeWhitespace(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function truncate(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return value.slice(0, maxLength);
+}
+
+function normalizePromptSnippet(prompt: string): string {
+  return truncate(normalizeWhitespace(prompt), MAX_PROMPT_SNIPPET_LENGTH);
+}
+
+function deriveTitleFromPrompt(prompt: string): string {
+  const normalized = normalizeWhitespace(prompt);
+  if (!normalized) {
+    return DEFAULT_DIAGRAM_TITLE;
+  }
+
+  const [firstSentence] = normalized.split(PROMPT_SENTENCE_SPLIT_PATTERN);
+  return truncate(firstSentence || normalized, MAX_TITLE_LENGTH);
 }
 
 function createMessageId(): string {
@@ -221,6 +250,20 @@ export const enqueuePrompt = mutation({
       ctx,
       args.sessionId
     );
+    const now = Date.now();
+    const promptSnippet = normalizePromptSnippet(prompt);
+    const shouldAutoTitle =
+      !session.title ||
+      (session.title === DEFAULT_DIAGRAM_TITLE && !session.titleEditedAt);
+
+    await ctx.db.patch(session._id, {
+      ...(session.firstPrompt === undefined
+        ? { firstPrompt: promptSnippet }
+        : {}),
+      lastPrompt: promptSnippet,
+      ...(shouldAutoTitle ? { title: deriveTitleFromPrompt(prompt) } : {}),
+      updatedAt: now,
+    });
 
     const existingRun = await ctx.db
       .query("diagramThreadRuns")
@@ -256,7 +299,6 @@ export const enqueuePrompt = mutation({
       throw new Error("Failed to initialize session thread");
     }
 
-    const now = Date.now();
     const traceId = args.traceId ?? createTraceId();
     const userMessageId = createMessageId();
     const assistantMessageId = createMessageId();
