@@ -44,7 +44,7 @@ When this plugin is loaded, it registers a `sketchi-diagram` subagent (without d
 
 Optional env override:
 
-- `SKETCHI_API_URL` (defaults to `https://sketchi.app`)
+- `SKETCHI_API_URL` (defaults to `https://www.sketchi.app`)
 - `SKETCHI_ALLOW_UNSAFE_OUTPUT_PATH=1` to opt out of default output-path containment (power users only)
 
 Authentication is required for diagram APIs. In OpenCode, select auth provider `sketchi`:

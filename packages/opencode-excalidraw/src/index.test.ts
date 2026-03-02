@@ -169,6 +169,58 @@ describe("SketchiPlugin", () => {
     expect(method?.label.toLowerCase()).toContain("device flow");
   });
 
+  test("canonicalizes sketchi.app API base to www for auth device start", async () => {
+    const originalFetch = globalThis.fetch;
+    const originalApiBase = process.env.SKETCHI_API_URL;
+    const requestedUrls: string[] = [];
+
+    globalThis.fetch = ((input) => {
+      let url: string;
+      if (typeof input === "string") {
+        url = input;
+      } else if (input instanceof URL) {
+        url = input.toString();
+      } else {
+        url = input.url;
+      }
+      requestedUrls.push(url);
+      return new Response(
+        JSON.stringify({
+          deviceCode: "device-code",
+          userCode: "ABCD-EFGH",
+          interval: 5,
+          expiresIn: 600,
+          verificationUrl: "https://www.sketchi.app/device",
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }
+      );
+    }) as typeof fetch;
+
+    process.env.SKETCHI_API_URL = "https://sketchi.app/";
+
+    try {
+      const plugin = await SketchiPlugin(createPluginInput());
+      const method = plugin.auth?.methods?.[0];
+      expect(method?.type).toBe("oauth");
+
+      const authStart = await method?.authorize();
+      expect(authStart?.url).toBe("https://www.sketchi.app/device");
+      expect(requestedUrls[0]).toBe(
+        "https://www.sketchi.app/api/auth/device/start"
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalApiBase === undefined) {
+        process.env.SKETCHI_API_URL = undefined;
+      } else {
+        process.env.SKETCHI_API_URL = originalApiBase;
+      }
+    }
+  });
+
   test("diagram_grade blocks concurrent calls for the same message", async () => {
     const deferred = createDeferred<{
       data: { parts: Array<{ type: string; text: string }> };
