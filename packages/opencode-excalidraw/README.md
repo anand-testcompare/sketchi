@@ -60,6 +60,19 @@ Optional env-based auth fallback (used when OpenCode auth is not configured):
 - Fast package tests: `bun run test`
 - Optional live integration scenario (calls Sketchi API and renders PNG): `bun run test:integration`
 
+## Release Channels
+
+Plugin publishing uses two channels:
+
+- `next`: published for plugin iterations on `main` when a formal release was not created.
+- `latest`: published only when release-please creates an actual release (after merging the release PR).
+
+Practical flow:
+
+1. Keep the release PR open while validating behavior via real OpenCode install/upgrade cycles.
+2. Consume `next` builds for validation.
+3. Merge the release PR when ready to promote that version to `latest`.
+
 ## Links
 
 - npm: https://www.npmjs.com/package/@sketchi-app/opencode-excalidraw
