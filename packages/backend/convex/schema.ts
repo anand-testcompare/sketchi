@@ -55,27 +55,6 @@ export default defineSchema({
   })
     .index("by_externalId", ["externalId"])
     .index("by_email", ["email"]),
-  oauthDeviceFlows: defineTable({
-    deviceCodeHash: v.string(),
-    userCode: v.string(),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("approved"),
-      v.literal("consumed"),
-      v.literal("expired")
-    ),
-    createdAt: v.number(),
-    expiresAt: v.number(),
-    intervalSeconds: v.number(),
-    lastPolledAt: v.optional(v.number()),
-    approvedAt: v.optional(v.number()),
-    approvedByExternalId: v.optional(v.string()),
-    consumedAt: v.optional(v.number()),
-    accessToken: v.optional(v.string()),
-    accessTokenExpiresAt: v.optional(v.number()),
-  })
-    .index("by_deviceCodeHash", ["deviceCodeHash"])
-    .index("by_userCode", ["userCode"]),
   iconLibraries: defineTable({
     name: v.string(),
     slug: v.string(),

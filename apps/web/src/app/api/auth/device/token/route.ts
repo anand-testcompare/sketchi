@@ -1,14 +1,5 @@
-import { api } from "@sketchi/backend/convex/_generated/api";
 import { createTraceId, normalizeTraceId } from "@sketchi/shared";
-import { ConvexHttpClient } from "convex/browser";
-
-const convexUrl =
-  process.env.NEXT_PUBLIC_CONVEX_URL ??
-  (() => {
-    throw new Error(
-      "Missing NEXT_PUBLIC_CONVEX_URL for device auth token route"
-    );
-  })();
+import { pollWorkOsDeviceFlow } from "@/lib/workos-device-auth";
 
 export async function POST(request: Request) {
   const traceId =
@@ -49,8 +40,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const convex = new ConvexHttpClient(convexUrl);
-    const result = await convex.mutation(api.deviceAuth.poll, {
+    const result = await pollWorkOsDeviceFlow({
       deviceCode,
     });
 

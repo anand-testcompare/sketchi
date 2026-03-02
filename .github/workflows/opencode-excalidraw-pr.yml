@@ -5,10 +5,6 @@ on:
     paths:
       - "packages/opencode-excalidraw/**"
       - ".github/workflows/opencode-excalidraw-*.yml"
-  pull_request_target:
-    paths:
-      - "packages/opencode-excalidraw/**"
-      - ".github/workflows/opencode-excalidraw-*.yml"
   workflow_dispatch:
 
 concurrency:
@@ -21,7 +17,7 @@ permissions:
 
 jobs:
   opencode-excalidraw:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     env:
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
     steps:

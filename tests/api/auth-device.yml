@@ -69,7 +69,8 @@ testcases:
           - result.statuscode ShouldEqual 200
           - result.headers.X-Trace-Id ShouldEqual "{{.trace_id_device_start}}"
           - result.bodyjson.deviceCode ShouldNotBeEmpty
-          - result.bodyjson.userCode ShouldContainSubstring "-"
+          - result.bodyjson.userCode ShouldNotBeEmpty
+          - result.bodyjson.verificationUrl ShouldContainSubstring "user_code="
           - result.bodyjson.interval ShouldBeGreaterThan 0
           - result.bodyjson.expiresIn ShouldBeGreaterThan 0
 
@@ -98,10 +99,26 @@ testcases:
           {
             "deviceCode": "{{.device_start_and_pending.device_code}}"
           }
+        vars:
+          second_poll_status:
+            from: result.bodyjson.status
         assertions:
           - result.statuscode ShouldEqual 200
-          - result.bodyjson.status ShouldEqual "slow_down"
-          - result.bodyjson.interval ShouldBeGreaterThan 0
+          - result.bodyjson.status ShouldNotBeEmpty
+
+      - type: exec
+        script: |
+          case "{{.device_start_and_pending.second_poll_status}}" in
+            slow_down|authorization_pending)
+              exit 0
+              ;;
+            *)
+              echo "unexpected second poll status: {{.device_start_and_pending.second_poll_status}}"
+              exit 1
+              ;;
+          esac
+        assertions:
+          - result.code ShouldEqual 0
 
   - name: device_token_invalid_grant
     steps:

@@ -1,25 +1,12 @@
-import { api } from "@sketchi/backend/convex/_generated/api";
 import { createTraceId, normalizeTraceId } from "@sketchi/shared";
-import { ConvexHttpClient } from "convex/browser";
-
-const convexUrl =
-  process.env.NEXT_PUBLIC_CONVEX_URL ??
-  (() => {
-    throw new Error(
-      "Missing NEXT_PUBLIC_CONVEX_URL for device auth start route"
-    );
-  })();
+import { startWorkOsDeviceFlow } from "@/lib/workos-device-auth";
 
 export async function POST(request: Request) {
   const traceId =
     normalizeTraceId(request.headers.get("x-trace-id")) ?? createTraceId();
 
   try {
-    const convex = new ConvexHttpClient(convexUrl);
-    const started = await convex.mutation(api.deviceAuth.start, {});
-
-    const verificationUrl = new URL(started.verificationPath, request.url);
-    verificationUrl.searchParams.set("userCode", started.userCode);
+    const started = await startWorkOsDeviceFlow();
 
     return Response.json(
       {
@@ -27,7 +14,7 @@ export async function POST(request: Request) {
         userCode: started.userCode,
         interval: started.interval,
         expiresIn: started.expiresIn,
-        verificationUrl: verificationUrl.toString(),
+        verificationUrl: started.verificationUrl,
       },
       {
         headers: {
