@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { PluginInput } from "@opencode-ai/plugin";
 
@@ -18,6 +19,7 @@ import { resolveExcalidrawFromShareUrl } from "./resolve-share-url";
 
 export interface DiagramGradeInput {
   abort?: AbortSignal;
+  allowUnsafeOutputPath?: boolean;
   apiBase: string;
   baseDir: string;
   excalidraw?: ExcalidrawFile;
@@ -358,6 +360,7 @@ async function resolveExcalidraw(input: DiagramGradeInput): Promise<{
 
 async function ensurePng(
   excalidraw: ExcalidrawFile | null,
+  context: { sessionID: string },
   input: DiagramGradeInput
 ): Promise<{
   pngPath: string | null;
@@ -365,7 +368,7 @@ async function ensurePng(
   pngDurationMs?: number;
 }> {
   if (input.pngPath) {
-    return { pngPath: resolveOutputPath(input.pngPath, input.baseDir) };
+    return { pngPath: resolve(input.baseDir, input.pngPath) };
   }
 
   if (!excalidraw) {
@@ -373,8 +376,10 @@ async function ensurePng(
   }
 
   const outputPath = input.outputPath
-    ? resolveOutputPath(input.outputPath, input.baseDir)
-    : buildDefaultPngPath("diagram-grade", input.baseDir);
+    ? resolveOutputPath(input.outputPath, input.baseDir, context.sessionID, {
+        allowUnsafeOutputPath: input.allowUnsafeOutputPath,
+      })
+    : buildDefaultPngPath("diagram-grade", input.baseDir, context.sessionID);
 
   const pngResult = await renderElementsToPng(
     excalidraw.elements,
@@ -425,7 +430,7 @@ export async function gradeDiagram(
   let pngDurationMs: number | undefined;
 
   try {
-    const pngResult = await ensurePng(resolved.excalidraw, input);
+    const pngResult = await ensurePng(resolved.excalidraw, context, input);
     pngPath = pngResult.pngPath;
     pngBytes = pngResult.pngBytes;
     pngDurationMs = pngResult.pngDurationMs;

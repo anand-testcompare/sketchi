@@ -1,7 +1,7 @@
 // Scenario:
-// 1) diagram_from_prompt -> expect shareLink + PNG under ./sketchi/png
+// 1) diagram_from_prompt -> expect shareLink + PNG under ./.sketchi/sessions/<sessionID>/png
 // 2) diagram_tweak (same session + request) -> expect same session continuity + PNG
-// 3) diagram_to_png (shareUrl) -> expect PNG under ./sketchi/png
+// 3) diagram_to_png (shareUrl) -> expect PNG under ./.sketchi/sessions/<sessionID>/png
 import { existsSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -35,7 +35,13 @@ async function assertPngPath(path: string) {
   if (SKIP_PNG_RENDER) {
     return;
   }
-  const pngRoot = resolve(process.cwd(), "sketchi", "png");
+  const pngRoot = resolve(
+    process.cwd(),
+    ".sketchi",
+    "sessions",
+    "test-session",
+    "png"
+  );
   const normalized = resolve(path);
   if (!normalized.startsWith(pngRoot)) {
     throw new Error(`PNG path must stay under ${pngRoot}: ${normalized}`);
