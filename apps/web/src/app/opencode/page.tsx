@@ -2,14 +2,14 @@
 
 import { Check, Copy } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
+import { OpencodeAuthTerminalDemo } from "@/components/opencode/auth-terminal-demo";
 import { opencodePluginVersion } from "@/lib/opencode-version";
 
 const npmUrl = "https://www.npmjs.com/package/@sketchi-app/opencode-excalidraw";
 const githubUrl =
   "https://github.com/anand-testcompare/sketchi/tree/main/packages/opencode-excalidraw";
-const authCommand = "opencode auth login";
 const webCommand = "opencode web";
 const cliCommand = "opencode";
 
@@ -21,16 +21,12 @@ interface ModePreview {
 
 type DemoPhase =
   | "typing-config"
+  | "config-ready"
   | "typing-web-command"
   | "ready-web"
   | "sending-web"
   | "loading-web"
-  | "result-web"
-  | "editing-cli-command"
-  | "ready-cli"
-  | "sending-cli"
-  | "loading-cli"
-  | "result-cli";
+  | "result-web";
 
 const webPreview: ModePreview = {
   alt: "Generated Excalidraw Diagram (OpenCode Web)",
@@ -38,16 +34,7 @@ const webPreview: ModePreview = {
   light: "/screenshots/opencode-preview-light.png",
 };
 
-const cliPreview: ModePreview = {
-  alt: "Generated Excalidraw Diagram (OpenCode CLI)",
-  dark: "/screenshots/opencode-terminal-dark.png",
-  light: "/screenshots/opencode-terminal-light.png",
-};
-
-function useOpencodeDemo(
-  pluginLine: string,
-  previewFrameRef: { current: HTMLDivElement | null }
-) {
+function useOpencodeDemo(pluginLine: string) {
   const [demoPhase, setDemoPhase] = useState<DemoPhase>("typing-config");
   const [typedPlugin, setTypedPlugin] = useState("");
   const [typedInstall, setTypedInstall] = useState("");
@@ -97,74 +84,27 @@ function useOpencodeDemo(
       return true;
     };
 
-    const eraseTo = async (
-      fromText: string,
-      targetText: string,
-      setValue: (value: string) => void,
-      delayMs: number
-    ): Promise<boolean> => {
-      for (let i = fromText.length - 1; i >= targetText.length; i -= 1) {
-        if (cancelled) {
-          return false;
-        }
-        setValue(fromText.slice(0, i));
-        const waited = await wait(delayMs);
-        if (!waited) {
-          return false;
-        }
-      }
+    const runSequence = async () => {
+      setDemoPhase("typing-config");
+      setTypedPlugin("");
+      setTypedInstall("");
 
-      return true;
-    };
+      await ensure(typeText(pluginLine, setTypedPlugin, 52, 420));
+      setDemoPhase("config-ready");
+      await ensure(wait(5200));
 
-    const waitUntilReplayAllowed = async () => {
-      while (previewFrameRef.current?.matches(":hover")) {
-        await ensure(wait(250));
-      }
-    };
-
-    const runWebSequence = async () => {
       setDemoPhase("typing-web-command");
-      await ensure(typeText(webCommand, setTypedInstall, 70, 650));
+      await ensure(typeText(webCommand, setTypedInstall, 112, 800));
       setDemoPhase("ready-web");
-      await ensure(wait(800));
+      await ensure(wait(2000));
       setDemoPhase("sending-web");
-      await ensure(wait(1100));
-      setDemoPhase("loading-web");
       await ensure(wait(1900));
+      setDemoPhase("loading-web");
+      await ensure(wait(3400));
       setDemoPhase("result-web");
-      await ensure(wait(5500));
     };
 
-    const runCliSequence = async () => {
-      setDemoPhase("editing-cli-command");
-      await ensure(wait(900));
-      await ensure(eraseTo(webCommand, cliCommand, setTypedInstall, 110));
-      setDemoPhase("ready-cli");
-      await ensure(wait(900));
-      setDemoPhase("sending-cli");
-      await ensure(wait(1200));
-      setDemoPhase("loading-cli");
-      await ensure(wait(2100));
-      setDemoPhase("result-cli");
-      await ensure(wait(6500));
-    };
-
-    const runLoop = async () => {
-      while (!cancelled) {
-        setTypedPlugin("");
-        setTypedInstall("");
-        setDemoPhase("typing-config");
-
-        await ensure(typeText(pluginLine, setTypedPlugin, 24));
-        await ensure(wait(700));
-        await runWebSequence();
-        await runCliSequence();
-        await waitUntilReplayAllowed();
-      }
-    };
-
-    runLoop().catch((error) => {
+    runSequence().catch((error) => {
       if (error !== stopSignal) {
         console.error("OpenCode demo animation failed", error);
       }
@@ -176,7 +116,7 @@ function useOpencodeDemo(
         clearTimeout(timer);
       }
     };
-  }, [pluginLine, previewFrameRef]);
+  }, [pluginLine]);
 
   return { demoPhase, typedInstall, typedPlugin };
 }
@@ -192,18 +132,20 @@ interface DemoUiState {
 }
 
 function deriveDemoUiState(demoPhase: DemoPhase): DemoUiState {
-  const showCommandCursor =
-    demoPhase === "typing-web-command" || demoPhase === "editing-cli-command";
-  const showLoading =
-    demoPhase === "loading-web" || demoPhase === "loading-cli";
-  const showSending =
-    demoPhase === "sending-web" || demoPhase === "sending-cli";
+  const showCommandCursor = demoPhase === "typing-web-command";
+  const showLoading = demoPhase === "loading-web";
+  const showSending = demoPhase === "sending-web";
 
-  let waitingMessage = "Preparing terminal output...";
-  if (demoPhase === "ready-web" || demoPhase === "ready-cli") {
-    waitingMessage = "Command ready. Sending next...";
+  let waitingMessage = "Step 1 in progress: writing opencode.jsonc...";
+  if (demoPhase === "config-ready") {
+    waitingMessage =
+      "Step 2 in progress: authenticate in the provider picker...";
+  } else if (demoPhase === "typing-web-command") {
+    waitingMessage = "Step 3 in progress: typing opencode web...";
+  } else if (demoPhase === "ready-web") {
+    waitingMessage = "Step 3 command ready. Sending next...";
   } else if (showSending) {
-    waitingMessage = "Sending command...";
+    waitingMessage = "Step 3: sending command...";
   }
 
   let preview: ModePreview | null = null;
@@ -211,9 +153,6 @@ function deriveDemoUiState(demoPhase: DemoPhase): DemoUiState {
   if (demoPhase === "result-web") {
     preview = webPreview;
     previewMode = "web";
-  } else if (demoPhase === "result-cli") {
-    preview = cliPreview;
-    previewMode = "cli";
   }
 
   const showWaiting = !(showLoading || preview !== null);
@@ -232,7 +171,6 @@ function deriveDemoUiState(demoPhase: DemoPhase): DemoUiState {
 export default function OpenCodeDocsPage() {
   const [version, setVersion] = useState(opencodePluginVersion);
   const [copied, setCopied] = useState(false);
-  const previewFrameRef = useRef<HTMLDivElement>(null);
 
   // Default to "latest" since that dynamically ensures they have the newest plugin version,
   // preventing them from being stuck on an outdated hardcoded tag.
@@ -262,40 +200,21 @@ export default function OpenCodeDocsPage() {
       .catch((e) => console.error("Failed to fetch version", e));
   }, []);
 
-  const { demoPhase, typedInstall, typedPlugin } = useOpencodeDemo(
-    pluginLine,
-    previewFrameRef
-  );
+  const { demoPhase, typedInstall, typedPlugin } = useOpencodeDemo(pluginLine);
   const demoUi = deriveDemoUiState(demoPhase);
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:py-12">
+    <main className="mx-auto w-dvw min-w-0 max-w-6xl overflow-x-hidden px-4 py-8 sm:py-12">
       <section className="relative overflow-hidden rounded-[2rem] border-2 bg-card p-6 sm:p-10">
         <div className="relative z-10 mb-8 flex flex-col items-start justify-between gap-6 sm:flex-row">
           <div className="space-y-3">
             <h1 className="font-semibold text-3xl tracking-tight sm:text-4xl">
               OpenCode plugin docs
             </h1>
-            <ol className="ml-5 list-decimal space-y-1 text-base text-muted-foreground leading-relaxed">
-              <li>
-                Update{" "}
-                <code className="rounded border bg-muted/50 px-1.5 py-0.5">
-                  opencode.jsonc
-                </code>
-                .
-              </li>
-              <li>
-                Run <code>{authCommand}</code> and select <code>sketchi</code>{" "}
-                (device-flow sign-in).
-              </li>
-              <li>
-                Run <code>{webCommand}</code>.
-              </li>
-              <li>
-                Then switch to <code>{cliCommand}</code> and run again in
-                terminal mode.
-              </li>
-            </ol>
+            <p className="max-w-3xl text-base text-muted-foreground leading-relaxed">
+              Follow the guided sequence below. Each card is numbered so users
+              can mirror the exact setup flow without guesswork.
+            </p>
           </div>
           <span className="inline-flex shrink-0 items-center justify-center rounded-full border-2 border-primary/20 bg-primary/10 px-4 py-1.5 font-medium text-primary text-sm transition-colors hover:bg-primary/20">
             v{version}
@@ -361,22 +280,27 @@ export default function OpenCodeDocsPage() {
                     opencode.jsonc
                   </span>
                 </div>
-                <button
-                  aria-label="Copy config"
-                  className="flex items-center gap-1.5 rounded bg-white/10 px-2 py-1 text-white/70 text-xs transition-colors hover:bg-white/20 hover:text-white"
-                  onClick={handleCopy}
-                  type="button"
-                >
-                  {copied ? (
-                    <Check className="size-3.5" />
-                  ) : (
-                    <Copy className="size-3.5" />
-                  )}
-                  {copied ? "Copied" : "Copy"}
-                </button>
+                <div className="flex items-center gap-2">
+                  <span className="rounded border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 font-medium text-[11px] text-amber-300">
+                    Step 1
+                  </span>
+                  <button
+                    aria-label="Copy config"
+                    className="flex items-center gap-1.5 rounded bg-white/10 px-2 py-1 text-white/70 text-xs transition-colors hover:bg-white/20 hover:text-white"
+                    onClick={handleCopy}
+                    type="button"
+                  >
+                    {copied ? (
+                      <Check className="size-3.5" />
+                    ) : (
+                      <Copy className="size-3.5" />
+                    )}
+                    {copied ? "Copied" : "Copy"}
+                  </button>
+                </div>
               </div>
               <div className="p-5">
-                <code className="block whitespace-pre font-mono text-sm text-zinc-300 leading-7">
+                <code className="block whitespace-pre-wrap break-words font-mono text-sm text-zinc-300 leading-7">
                   <span className="text-[#569cd6]">{"{\n"}</span>
                   <span className="text-[#9cdcfe]">{'  "$schema"'}</span>
                   <span className="text-zinc-300">{": "}</span>
@@ -396,80 +320,90 @@ export default function OpenCodeDocsPage() {
               </div>
             </section>
 
-            <div className="overflow-hidden rounded-2xl border-2 border-zinc-200/50 bg-[#1e1e1e] shadow-sm dark:border-white/10 dark:bg-[#0d0d0d]">
-              <div className="flex items-center border-white/10 border-b bg-white/5 px-4 py-2.5">
-                <span className="font-medium text-white/50 text-xs">
-                  terminal
+            <OpencodeAuthTerminalDemo startDelayMs={2600} />
+          </div>
+
+          <section className="overflow-hidden rounded-2xl border-2 border-zinc-200/50 bg-[#1e1e1e] shadow-sm transition-colors dark:border-white/10 dark:bg-[#0d0d0d]">
+            <div className="flex items-center justify-between border-white/10 border-b bg-white/5 px-4 py-2.5">
+              <div className="flex items-center gap-1.5">
+                <div className="size-3 rounded-full bg-[#ff5f56]" />
+                <div className="size-3 rounded-full bg-[#ffbd2e]" />
+                <div className="size-3 rounded-full bg-[#27c93f]" />
+                <span className="ml-2 font-medium text-white/50 text-xs">
+                  run command
                 </span>
               </div>
-              <div className="p-5">
-                <code className="flex min-h-7 items-center font-mono text-sm text-zinc-300">
-                  <span className="mr-3 text-[#27c93f]">$</span>
-                  <span>{typedInstall}</span>
-                  {demoUi.showCommandCursor && (
-                    <span className="ml-1.5 inline-block h-4 w-2 animate-pulse bg-zinc-300" />
-                  )}
-                  {demoUi.showSending && (
-                    <span className="ml-2 text-emerald-400 text-xs">
-                      [enter]
-                    </span>
-                  )}
-                </code>
-              </div>
+              <span className="rounded border border-cyan-400/30 bg-cyan-400/10 px-2 py-0.5 font-medium text-[11px] text-cyan-300">
+                Step 3
+              </span>
             </div>
-          </div>
 
-          <div
-            className="relative flex aspect-4/3 w-full items-center justify-center overflow-hidden rounded-2xl border border-border bg-muted/20"
-            ref={previewFrameRef}
-          >
-            {demoUi.showWaiting && (
-              <div className="flex animate-pulse flex-col items-center gap-3 opacity-50">
-                <div className="rounded border border-muted-foreground/30 px-3 py-2 font-mono text-muted-foreground text-xs">
-                  {demoUi.waitingMessage}
+            <div className="border-white/10 border-b p-4">
+              <code className="flex min-h-7 items-center font-mono text-sm text-zinc-300">
+                <span className="mr-3 text-[#27c93f]">$</span>
+                <span>{typedInstall}</span>
+                {demoUi.showCommandCursor && (
+                  <span className="ml-1.5 inline-block h-4 w-2 animate-pulse bg-zinc-300" />
+                )}
+                {demoUi.showSending && (
+                  <span className="ml-2 text-emerald-400 text-xs">[enter]</span>
+                )}
+              </code>
+              <p className="mt-2 text-muted-foreground text-xs">
+                Step 4 after preview opens: switch to <code>{cliCommand}</code>{" "}
+                and run again in terminal mode.
+              </p>
+            </div>
+
+            <div className="relative flex aspect-4/3 w-full items-center justify-center overflow-hidden bg-muted/20">
+              {demoUi.showWaiting && (
+                <div className="flex animate-pulse flex-col items-center gap-3 opacity-50">
+                  <div className="rounded border border-muted-foreground/30 px-3 py-2 font-mono text-muted-foreground text-xs">
+                    {demoUi.waitingMessage}
+                  </div>
+                  <span className="font-medium text-muted-foreground text-sm">
+                    Waiting for command send
+                  </span>
                 </div>
-                <span className="font-medium text-muted-foreground text-sm">
-                  Waiting for command send
-                </span>
-              </div>
-            )}
+              )}
 
-            {demoUi.showLoading && (
-              <div className="flex flex-col items-center gap-3 opacity-75">
-                <div className="size-10 animate-spin rounded-full border-4 border-muted-foreground/20 border-t-muted-foreground/60" />
-                <span className="font-medium text-muted-foreground text-sm">
-                  Launching preview...
-                </span>
-              </div>
-            )}
-
-            {demoUi.preview && (
-              <div className="absolute inset-0 flex items-center justify-center p-4 transition-all duration-700 ease-out">
-                <div className="relative h-full w-full overflow-hidden rounded-xl border border-border bg-background">
-                  <Image
-                    alt={demoUi.preview.alt}
-                    className={`dark:hidden ${
-                      demoUi.previewMode === "web"
-                        ? "object-cover object-top-left"
-                        : "object-cover object-center"
-                    }`}
-                    fill
-                    src={demoUi.preview.light}
-                  />
-                  <Image
-                    alt={demoUi.preview.alt}
-                    className={`hidden dark:block ${
-                      demoUi.previewMode === "web"
-                        ? "object-cover object-top-left"
-                        : "object-cover object-center"
-                    }`}
-                    fill
-                    src={demoUi.preview.dark}
-                  />
+              {demoUi.showLoading && (
+                <div className="flex flex-col items-center gap-3 opacity-75">
+                  <div className="size-10 animate-spin rounded-full border-4 border-muted-foreground/20 border-t-muted-foreground/60" />
+                  <span className="font-medium text-muted-foreground text-sm">
+                    Launching preview...
+                  </span>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+
+              {demoUi.preview && (
+                <div className="absolute inset-0 flex items-center justify-center p-4 transition-all duration-700 ease-out">
+                  <div className="relative h-full w-full overflow-hidden rounded-xl border border-border bg-background">
+                    <Image
+                      alt={demoUi.preview.alt}
+                      className={`dark:hidden ${
+                        demoUi.previewMode === "web"
+                          ? "object-cover object-top-left"
+                          : "object-cover object-center"
+                      }`}
+                      fill
+                      src={demoUi.preview.light}
+                    />
+                    <Image
+                      alt={demoUi.preview.alt}
+                      className={`hidden dark:block ${
+                        demoUi.previewMode === "web"
+                          ? "object-cover object-top-left"
+                          : "object-cover object-center"
+                      }`}
+                      fill
+                      src={demoUi.preview.dark}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
         </div>
       </section>
     </main>
