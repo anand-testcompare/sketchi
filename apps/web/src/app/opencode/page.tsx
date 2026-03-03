@@ -19,6 +19,8 @@ interface ModePreview {
   light: string;
 }
 
+type RunMode = "web" | "cli";
+
 type DemoPhase =
   | "typing-config"
   | "config-ready"
@@ -32,6 +34,12 @@ const webPreview: ModePreview = {
   alt: "Generated Excalidraw Diagram (OpenCode Web)",
   dark: "/screenshots/opencode-preview-dark.png",
   light: "/screenshots/opencode-preview-light.png",
+};
+
+const cliPreview: ModePreview = {
+  alt: "Generated Excalidraw Diagram (OpenCode CLI)",
+  dark: "/screenshots/opencode-terminal-dark.png",
+  light: "/screenshots/opencode-terminal-light.png",
 };
 
 function useOpencodeDemo(pluginLine: string) {
@@ -131,7 +139,22 @@ interface DemoUiState {
   waitingMessage: string;
 }
 
-function deriveDemoUiState(demoPhase: DemoPhase): DemoUiState {
+function deriveDemoUiState(
+  demoPhase: DemoPhase,
+  runMode: RunMode
+): DemoUiState {
+  if (runMode === "cli") {
+    return {
+      preview: cliPreview,
+      previewMode: "cli",
+      showCommandCursor: false,
+      showLoading: false,
+      showSending: false,
+      showWaiting: false,
+      waitingMessage: "Step 3: run opencode in terminal mode.",
+    };
+  }
+
   const showCommandCursor = demoPhase === "typing-web-command";
   const showLoading = demoPhase === "loading-web";
   const showSending = demoPhase === "sending-web";
@@ -171,6 +194,7 @@ function deriveDemoUiState(demoPhase: DemoPhase): DemoUiState {
 export default function OpenCodeDocsPage() {
   const [version, setVersion] = useState(opencodePluginVersion);
   const [copied, setCopied] = useState(false);
+  const [runMode, setRunMode] = useState<RunMode>("web");
 
   // Default to "latest" since that dynamically ensures they have the newest plugin version,
   // preventing them from being stuck on an outdated hardcoded tag.
@@ -201,7 +225,7 @@ export default function OpenCodeDocsPage() {
   }, []);
 
   const { demoPhase, typedInstall, typedPlugin } = useOpencodeDemo(pluginLine);
-  const demoUi = deriveDemoUiState(demoPhase);
+  const demoUi = deriveDemoUiState(demoPhase, runMode);
 
   return (
     <main className="mx-auto w-dvw min-w-0 max-w-6xl overflow-x-hidden px-4 py-8 sm:py-12">
@@ -333,25 +357,51 @@ export default function OpenCodeDocsPage() {
                   run command
                 </span>
               </div>
-              <span className="rounded border border-cyan-400/30 bg-cyan-400/10 px-2 py-0.5 font-medium text-[11px] text-cyan-300">
-                Step 3
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="rounded border border-cyan-400/30 bg-cyan-400/10 px-2 py-0.5 font-medium text-[11px] text-cyan-300">
+                  Step 3
+                </span>
+                <div className="inline-flex overflow-hidden rounded-md border border-white/15 text-[11px]">
+                  <button
+                    className={`px-2 py-1 transition-colors ${
+                      runMode === "web"
+                        ? "bg-cyan-400/20 text-cyan-200"
+                        : "bg-white/5 text-white/60 hover:bg-white/10"
+                    }`}
+                    onClick={() => setRunMode("web")}
+                    type="button"
+                  >
+                    opencode web
+                  </button>
+                  <button
+                    className={`border-white/10 border-l px-2 py-1 transition-colors ${
+                      runMode === "cli"
+                        ? "bg-cyan-400/20 text-cyan-200"
+                        : "bg-white/5 text-white/60 hover:bg-white/10"
+                    }`}
+                    onClick={() => setRunMode("cli")}
+                    type="button"
+                  >
+                    opencode
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="border-white/10 border-b p-4">
               <code className="flex min-h-7 items-center font-mono text-sm text-zinc-300">
                 <span className="mr-3 text-[#27c93f]">$</span>
-                <span>{typedInstall}</span>
-                {demoUi.showCommandCursor && (
+                <span>{runMode === "web" ? typedInstall : cliCommand}</span>
+                {runMode === "web" && demoUi.showCommandCursor && (
                   <span className="ml-1.5 inline-block h-4 w-2 animate-pulse bg-zinc-300" />
                 )}
-                {demoUi.showSending && (
+                {runMode === "web" && demoUi.showSending && (
                   <span className="ml-2 text-emerald-400 text-xs">[enter]</span>
                 )}
               </code>
               <p className="mt-2 text-muted-foreground text-xs">
-                Step 4 after preview opens: switch to <code>{cliCommand}</code>{" "}
-                and run again in terminal mode.
+                Choose one path: <code>{webCommand}</code> for browser preview
+                or <code>{cliCommand}</code> for terminal mode.
               </p>
             </div>
 
