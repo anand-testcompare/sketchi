@@ -354,7 +354,7 @@ export default function OpenCodeDocsPage() {
                 <div className="size-3 rounded-full bg-[#ffbd2e]" />
                 <div className="size-3 rounded-full bg-[#27c93f]" />
                 <span className="ml-2 font-medium text-white/50 text-xs">
-                  run command
+                  run
                 </span>
               </div>
               <div className="flex items-center gap-2">

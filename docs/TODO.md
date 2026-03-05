@@ -6,31 +6,13 @@
 - [ ] Run `bun dev` from repo root; confirm Next dev on `:3001` + Convex typecheck passes
 - [ ] If `:3001` is in use, stop the old process (e.g. `lsof -nP -iTCP:3001 -sTCP:LISTEN`)
 
-### Evidence + completion tracking
-- [x] **0.1 Share Link Round-Trip** - migrated to Convex + tested; experiment removed
-- [x] **0.2 AI Generation Quality** - migrated to Convex test + artifacts; experiment removed
-- [x] **0.3 Diagram Modification** - migrated to Convex actions + tests + artifacts; experiment removed
-- [x] **0.4 Auto-Layout** - migrated to deterministic layout module + Convex test + artifacts; experiment removed
-- [x] **0.5 Arrow Optimization** - migrated to lib module + Convex test + artifacts
-- [x] **Optimization suite** - artifacts in `packages/backend/test-results/arrow-optimization.*`
-- [x] **Visual grading (experiment)** - legacy experiments removed; artifacts now in `packages/backend/test-results/visual-grading.*`
-- [x] **Visual grading (Convex test)** - migrated to `packages/backend/convex/visualGrading.test.ts`; artifacts in `packages/backend/test-results/visual-grading.*`
-- [x] **Browserbase export** - Convex test writes PNG + report in `packages/backend/test-results/` (output name derived from test name)
-
-### Unify + simplify (delete, don’t rename)
-- [x] Delete duplicate schema: keep ONE diagram schema and remove the other
+### Unify + simplify
 - [ ] Delete unused prompt formats that target the removed schema
 - [ ] Two-stage pipeline: LLM **only** for domain analysis → `IntermediateFormat`; deterministic renderer **only** for diagram elements
 - [ ] Delete direct LLM-to-diagram element generation path
 - [ ] Standardize arrow format to LLM-friendly relation-only input + deterministic layout/edges
-- [x] Define `IntermediateFormat` for Excalidraw agent:
-  - nodes: id, label, kind, description?, metadata?
-  - edges: fromId, toId, label?
-  - graphOptions: diagramType + optional global edge/style overrides (apply to whole graph)
 
 ### Prompt library
-- [x] Create `packages/backend/lib/prompts/library/` with per-domain prompt files (Palantir, GCP, etc.)
-- [x] Add `packages/backend/lib/prompts/index.ts` to export prompt registry + helpers
 - [ ] Remove giant prompt strings from experiment code once migrated
 
 ### Migration policy (per experiment)
@@ -56,8 +38,6 @@
 
 ### Core Libraries
 - [ ] `lib/excalidraw-share.ts` - encrypt/upload/parse share links (LLM-friendly schema only)
-- [x] `lib/json-repair.ts` - repair LLM JSON output
-- [x] `lib/diagram-layout*.ts` - deterministic layout + arrow routing (single source of truth)
 - [ ] `lib/diagram-simplify.ts` - simplify diagram for agent consumption
 - [ ] `lib/prompt-registry.ts` - consume `packages/backend/prompts/` exports
 
@@ -75,17 +55,6 @@
 - [ ] End-to-end API test: share link → tweak → new share link
 - [ ] End-to-end API test: share link → restructure → new share link
 - [ ] Scalar docs render correctly
-
-## Phase 2: OpenCode Plugin
-
-- [x] Create `packages/opencode-excalidraw` workspace
-- [x] Implement `diagram_from_prompt` tool
-- [x] Implement `diagram_tweak` tool
-- [x] Implement `diagram_restructure` tool
-- [x] Implement `diagram_to_png` tool
-- [x] Implement `diagram_grade` tool
-- [x] Publish to npm as `@sketchi-app/opencode-excalidraw`
-- [x] Add local PNG exporter: `packages/opencode-excalidraw/src/lib/render.ts`
 
 ## Phase 3: Tech Stack Schemas
 

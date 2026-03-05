@@ -10,7 +10,8 @@ import {
 export const me = query({
   args: {},
   handler: async (ctx) => {
-    const { identity, user, isAdmin } = await getViewerWithUser(ctx);
+    const { identity, user, isAdmin, canManagePublicIconLibraries } =
+      await getViewerWithUser(ctx);
 
     if (!user) {
       return {
@@ -20,6 +21,7 @@ export const me = query({
           name: getIdentityName(identity),
           image: getIdentityImage(identity),
           isAdmin,
+          canManagePublicIconLibraries,
         },
       };
     }
@@ -40,6 +42,7 @@ export const me = query({
         name: getIdentityName(identity),
         image: getIdentityImage(identity),
         isAdmin,
+        canManagePublicIconLibraries,
       },
     };
   },
@@ -48,11 +51,13 @@ export const me = query({
 export const ensure = mutation({
   args: {},
   handler: async (ctx) => {
-    const { user, isAdmin } = await ensureViewerUser(ctx);
+    const { user, isAdmin, canManagePublicIconLibraries } =
+      await ensureViewerUser(ctx);
     return {
       _id: user._id,
       role: user.role,
       isAdmin,
+      canManagePublicIconLibraries,
     };
   },
 });

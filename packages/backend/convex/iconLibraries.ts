@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import type { DatabaseReader } from "./_generated/server";
 import { internalMutation, mutation, query } from "./_generated/server";
 import {
+  canIdentityManagePublicIconLibraries,
   ensureViewerUser,
   findUserByExternalId,
   getIdentityExternalId,
@@ -70,12 +71,13 @@ function canWriteLibrary(args: {
   ownerUserId: string | undefined;
   viewerUserId: string;
   isAdmin: boolean;
+  canManagePublicIconLibraries: boolean;
 }): boolean {
   if (args.isAdmin) {
     return true;
   }
   if (args.visibility === "public") {
-    return false;
+    return args.canManagePublicIconLibraries;
   }
   return args.ownerUserId === args.viewerUserId;
 }
@@ -88,6 +90,9 @@ export const list = query({
       : null;
     const viewerUserId = viewerUser?._id;
     const isAdmin = identity ? isIdentityAdmin(identity) : false;
+    const canManagePublicIconLibraries = identity
+      ? canIdentityManagePublicIconLibraries(identity)
+      : false;
 
     const libraries = await ctx.db.query("iconLibraries").collect();
 
@@ -127,6 +132,7 @@ export const list = query({
                 ownerUserId: library.ownerUserId,
                 viewerUserId,
                 isAdmin,
+                canManagePublicIconLibraries,
               })
             : false,
           isOwner: Boolean(
@@ -149,6 +155,9 @@ export const getBySlug = query({
       : null;
     const viewerUserId = viewerUser?._id;
     const isAdmin = identity ? isIdentityAdmin(identity) : false;
+    const canManagePublicIconLibraries = identity
+      ? canIdentityManagePublicIconLibraries(identity)
+      : false;
 
     const library = await ctx.db
       .query("iconLibraries")
@@ -187,6 +196,7 @@ export const getBySlug = query({
             ownerUserId: library.ownerUserId,
             viewerUserId,
             isAdmin,
+            canManagePublicIconLibraries,
           })
         : false,
       iconCount: icons.length,
@@ -203,6 +213,9 @@ export const get = query({
       : null;
     const viewerUserId = viewerUser?._id;
     const isAdmin = identity ? isIdentityAdmin(identity) : false;
+    const canManagePublicIconLibraries = identity
+      ? canIdentityManagePublicIconLibraries(identity)
+      : false;
 
     const library = await ctx.db.get(id);
     if (!library) {
@@ -227,6 +240,7 @@ export const get = query({
           ownerUserId: library.ownerUserId,
           viewerUserId,
           isAdmin,
+          canManagePublicIconLibraries,
         })
       : false;
 
@@ -267,10 +281,10 @@ export const create = mutation({
     visibility: v.optional(v.union(v.literal("public"), v.literal("private"))),
   },
   handler: async (ctx, { name, description, slug, visibility }) => {
-    const { user, isAdmin } = await ensureViewerUser(ctx);
+    const { user, canManagePublicIconLibraries } = await ensureViewerUser(ctx);
 
     const targetVisibility = visibility ?? "private";
-    if (targetVisibility === "public" && !isAdmin) {
+    if (targetVisibility === "public" && !canManagePublicIconLibraries) {
       throw new Error("Forbidden");
     }
 
@@ -322,7 +336,8 @@ export const update = mutation({
     ctx,
     { id, name, description, visibility, styleSettings }
   ) => {
-    const { user, isAdmin } = await ensureViewerUser(ctx);
+    const { user, isAdmin, canManagePublicIconLibraries } =
+      await ensureViewerUser(ctx);
     const library = await ctx.db.get(id);
     if (!library) {
       throw new Error("Icon library not found.");
@@ -335,6 +350,7 @@ export const update = mutation({
         ownerUserId: library.ownerUserId,
         viewerUserId: user._id,
         isAdmin,
+        canManagePublicIconLibraries,
       })
     ) {
       throw new Error("Forbidden");
@@ -348,7 +364,7 @@ export const update = mutation({
       updates.description = description;
     }
     if (visibility !== undefined) {
-      if (!isAdmin) {
+      if (!canManagePublicIconLibraries) {
         throw new Error("Forbidden");
       }
       updates.visibility = visibility;
@@ -370,7 +386,8 @@ export const ensureWriteAccess = mutation({
     libraryId: v.id("iconLibraries"),
   },
   handler: async (ctx, { libraryId }) => {
-    const { user, isAdmin } = await ensureViewerUser(ctx);
+    const { user, isAdmin, canManagePublicIconLibraries } =
+      await ensureViewerUser(ctx);
     const library = await ctx.db.get(libraryId);
     if (!library) {
       throw new Error("Icon library not found.");
@@ -382,6 +399,7 @@ export const ensureWriteAccess = mutation({
         ownerUserId: library.ownerUserId,
         viewerUserId: user._id,
         isAdmin,
+        canManagePublicIconLibraries,
       })
     ) {
       throw new Error("Forbidden");
@@ -399,7 +417,8 @@ export const generateUploadUrl = mutation({
     libraryId: v.id("iconLibraries"),
   },
   handler: async (ctx, { libraryId }) => {
-    const { user, isAdmin } = await ensureViewerUser(ctx);
+    const { user, isAdmin, canManagePublicIconLibraries } =
+      await ensureViewerUser(ctx);
     const library = await ctx.db.get(libraryId);
     if (!library) {
       throw new Error("Icon library not found.");
@@ -411,6 +430,7 @@ export const generateUploadUrl = mutation({
         ownerUserId: library.ownerUserId,
         viewerUserId: user._id,
         isAdmin,
+        canManagePublicIconLibraries,
       })
     ) {
       throw new Error("Forbidden");
@@ -463,7 +483,8 @@ export const addIconRecord = internalMutation({
 export const deleteIcon = mutation({
   args: { iconId: v.id("iconItems") },
   handler: async (ctx, { iconId }) => {
-    const { user, isAdmin } = await ensureViewerUser(ctx);
+    const { user, isAdmin, canManagePublicIconLibraries } =
+      await ensureViewerUser(ctx);
     const icon = await ctx.db.get(iconId);
     if (!icon) {
       throw new Error("Icon not found.");
@@ -480,6 +501,7 @@ export const deleteIcon = mutation({
         ownerUserId: library.ownerUserId,
         viewerUserId: user._id,
         isAdmin,
+        canManagePublicIconLibraries,
       })
     ) {
       throw new Error("Forbidden");
@@ -496,7 +518,8 @@ export const reorderIcons = mutation({
     orderedIds: v.array(v.id("iconItems")),
   },
   handler: async (ctx, { libraryId, orderedIds }) => {
-    const { user, isAdmin } = await ensureViewerUser(ctx);
+    const { user, isAdmin, canManagePublicIconLibraries } =
+      await ensureViewerUser(ctx);
     const library = await ctx.db.get(libraryId);
     if (!library) {
       throw new Error("Icon library not found.");
@@ -508,6 +531,7 @@ export const reorderIcons = mutation({
         ownerUserId: library.ownerUserId,
         viewerUserId: user._id,
         isAdmin,
+        canManagePublicIconLibraries,
       })
     ) {
       throw new Error("Forbidden");

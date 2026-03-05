@@ -10,6 +10,14 @@ const authed = t.withIdentity({
   subject: "test-user-icon-libraries",
   email: "icon-libraries@example.com",
 });
+const publicLibraryEditor = t.withIdentity({
+  subject: "public-library-editor",
+  email: "anand@shpit.dev",
+});
+const otherAuthed = t.withIdentity({
+  subject: "different-user-icon-libraries",
+  email: "different-icon-libraries@example.com",
+});
 
 const baseStyleSettings = {
   strokeColor: "#000000",
@@ -66,5 +74,69 @@ describe("iconLibraries", () => {
       throw new Error("expected icon library data");
     }
     expect(data.library.styleSettings.roughness).toBe(0);
+  });
+
+  test("non-allowlisted users cannot create public libraries", async () => {
+    await expect(
+      authed.mutation(api.iconLibraries.create, {
+        name: "Public Lib",
+        visibility: "public",
+      })
+    ).rejects.toThrow("Forbidden");
+  });
+
+  test("allowlisted public library editors can create and edit public libraries", async () => {
+    const viewer = await publicLibraryEditor.query(api.users.me, {});
+    expect(viewer.identity.canManagePublicIconLibraries).toBe(true);
+
+    const id = await publicLibraryEditor.mutation(api.iconLibraries.create, {
+      name: "Public Lib",
+      visibility: "public",
+    });
+
+    const editorView = await publicLibraryEditor.query(api.iconLibraries.get, {
+      id,
+    });
+    expect(editorView).not.toBeNull();
+    if (!editorView) {
+      throw new Error("expected public library data");
+    }
+
+    expect(editorView.permissions.canEdit).toBe(true);
+    expect(editorView.permissions.isPublic).toBe(true);
+
+    await publicLibraryEditor.mutation(api.iconLibraries.update, {
+      id,
+      name: "Public Lib Updated",
+      visibility: "public",
+      styleSettings: { ...baseStyleSettings, roughness: 1.2 },
+    });
+
+    const updated = await publicLibraryEditor.query(api.iconLibraries.get, {
+      id,
+    });
+    expect(updated?.library.name).toBe("Public Lib Updated");
+    expect(updated?.permissions.canEdit).toBe(true);
+  });
+
+  test("public libraries remain read-only for signed-in users outside the allowlist", async () => {
+    const id = await publicLibraryEditor.mutation(api.iconLibraries.create, {
+      name: "Readonly Public Lib",
+      visibility: "public",
+    });
+
+    const viewerData = await otherAuthed.query(api.iconLibraries.get, { id });
+    expect(viewerData).not.toBeNull();
+    if (!viewerData) {
+      throw new Error("expected public library data");
+    }
+
+    expect(viewerData.permissions.canEdit).toBe(false);
+    await expect(
+      otherAuthed.mutation(api.iconLibraries.update, {
+        id,
+        name: "Should Fail",
+      })
+    ).rejects.toThrow("Forbidden");
   });
 });
