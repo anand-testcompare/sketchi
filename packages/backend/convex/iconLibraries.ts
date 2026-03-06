@@ -69,7 +69,7 @@ function canReadLibrary(args: {
 function canWriteLibrary(args: {
   visibility: "public" | "private";
   ownerUserId: string | undefined;
-  viewerUserId: string;
+  viewerUserId: string | undefined;
   isAdmin: boolean;
   canManagePublicIconLibraries: boolean;
 }): boolean {
@@ -78,6 +78,9 @@ function canWriteLibrary(args: {
   }
   if (args.visibility === "public") {
     return args.canManagePublicIconLibraries;
+  }
+  if (!args.viewerUserId) {
+    return false;
   }
   return args.ownerUserId === args.viewerUserId;
 }
@@ -126,15 +129,13 @@ export const list = query({
         return {
           ...library,
           visibility: resolveVisibility(library.visibility),
-          canEdit: viewerUserId
-            ? canWriteLibrary({
-                visibility: resolveVisibility(library.visibility),
-                ownerUserId: library.ownerUserId,
-                viewerUserId,
-                isAdmin,
-                canManagePublicIconLibraries,
-              })
-            : false,
+          canEdit: canWriteLibrary({
+            visibility: resolveVisibility(library.visibility),
+            ownerUserId: library.ownerUserId,
+            viewerUserId,
+            isAdmin,
+            canManagePublicIconLibraries,
+          }),
           isOwner: Boolean(
             viewerUserId && library.ownerUserId === viewerUserId
           ),
@@ -190,15 +191,13 @@ export const getBySlug = query({
         ...library,
         visibility,
       },
-      canEdit: viewerUserId
-        ? canWriteLibrary({
-            visibility,
-            ownerUserId: library.ownerUserId,
-            viewerUserId,
-            isAdmin,
-            canManagePublicIconLibraries,
-          })
-        : false,
+      canEdit: canWriteLibrary({
+        visibility,
+        ownerUserId: library.ownerUserId,
+        viewerUserId,
+        isAdmin,
+        canManagePublicIconLibraries,
+      }),
       iconCount: icons.length,
     };
   },
@@ -234,15 +233,13 @@ export const get = query({
       return null;
     }
 
-    const canEdit = viewerUserId
-      ? canWriteLibrary({
-          visibility,
-          ownerUserId: library.ownerUserId,
-          viewerUserId,
-          isAdmin,
-          canManagePublicIconLibraries,
-        })
-      : false;
+    const canEdit = canWriteLibrary({
+      visibility,
+      ownerUserId: library.ownerUserId,
+      viewerUserId,
+      isAdmin,
+      canManagePublicIconLibraries,
+    });
 
     const icons = await ctx.db
       .query("iconItems")

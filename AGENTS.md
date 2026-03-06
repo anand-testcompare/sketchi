@@ -11,6 +11,9 @@
 - **Priority**: API > E2E > manual/verification.
 - **API (Convex)**: `packages/backend/convex/*.test.ts`. Never mock HTTP; verify functional intent.
 - **E2E (Stagehand)**: Prompt-first selectors; avoid brittle CSS. Use `STAGEHAND_TARGET_URL` for previews.
+- **Authenticated local E2E**: When a flow requires WorkOS sign-in, use `SKETCHI_E2E_EMAIL` and `SKETCHI_E2E_PASSWORD` from local env files instead of ad hoc credentials.
+- **Local auth/editor overrides**: For local WorkOS + Convex verification, prefer `SKETCHI_ADMIN_SUBJECTS` / `SKETCHI_ICON_LIBRARY_EDITOR_SUBJECTS` in addition to email allowlists. Local Convex identities may not include email claims even when the user is signed in.
+- **UI verification**: For any UI/E2E-affecting change, run a targeted local verification against the real app before finishing. Prefer `agent-browser` for the interaction path and `d3k` for browser/server log review; at minimum run the real dev server with `bun run dev` and verify the affected flow there.
 - **Manual**: Checklist + log analysis (`venom.log` or Convex logs).
 
 ## Memory

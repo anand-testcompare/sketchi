@@ -139,4 +139,27 @@ describe("iconLibraries", () => {
       })
     ).rejects.toThrow("Forbidden");
   });
+
+  test("allowlisted editors can edit public libraries without a local user row", async () => {
+    const id = await publicLibraryEditor.mutation(api.iconLibraries.create, {
+      name: "Seed Public Lib",
+      visibility: "public",
+    });
+
+    const freshAllowlistedViewer = t.withIdentity({
+      subject: "fresh-public-library-editor",
+      email: "anand@shpit.dev",
+    });
+
+    const viewer = await freshAllowlistedViewer.query(api.iconLibraries.get, {
+      id,
+    });
+    expect(viewer).not.toBeNull();
+    if (!viewer) {
+      throw new Error("expected public library data");
+    }
+
+    expect(viewer.permissions.canEdit).toBe(true);
+    expect(viewer.permissions.isPublic).toBe(true);
+  });
 });
