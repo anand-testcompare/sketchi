@@ -1,15 +1,22 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import type { LanguageModel } from "ai";
-import { appUrl, envLabel } from "../app-url";
+import {
+  appComponent,
+  appIdentifier,
+  appName,
+  appTitle,
+  appUrl,
+  envLabel,
+} from "../app-url";
 
-export const DEFAULT_OPENROUTER_MODEL = "google/gemini-3.1-flash-lite-preview";
+export const DEFAULT_OPENROUTER_MODEL = "google/gemini-3-flash-preview";
 
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
   compatibility: "strict",
   headers: {
     "HTTP-Referer": appUrl,
-    "X-Title": `sketchi (${envLabel})`,
+    "X-Title": appTitle,
   },
 });
 
@@ -29,6 +36,10 @@ function buildMetadata({
 }): Record<string, string> {
   const metadata: Record<string, string> = {
     env: envLabel,
+    appName,
+    appComponent,
+    appIdentifier,
+    appTitle,
     appUrl,
   };
 
