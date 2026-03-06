@@ -1,6 +1,9 @@
 import { Output, stepCountIs, ToolLoopAgent } from "ai";
 import { hashString, logEventSafely } from "../../convex/lib/observability";
-import { createOpenRouterChatModel } from "../ai/openrouter";
+import {
+  createOpenRouterChatModel,
+  DEFAULT_OPENROUTER_MODEL,
+} from "../ai/openrouter";
 import {
   type IntermediateFormat,
   IntermediateFormatSchema,
@@ -12,7 +15,7 @@ import type { GenerateIntermediateResult } from "./types";
 
 export interface ModifyIntermediateOptions {
   /**
-   * Maximum tool-loop steps for the agent (default 5).
+   * Maximum tool-loop steps for the agent (default 7).
    */
   maxSteps?: number;
   profileId?: string;
@@ -28,10 +31,9 @@ export interface ModifyIntermediateOptions {
   traceId?: string;
 }
 
-const DEFAULT_PRIMARY_MODEL_ID = "google/gemini-3-flash-preview";
-const DEFAULT_FALLBACK_MODEL_ID = "z-ai/glm-4.7";
 const DEFAULT_TIMEOUT_MS = 240_000;
-const DEFAULT_MAX_STEPS = 5;
+const DEFAULT_MAX_STEPS = 7;
+const MAX_INTERMEDIATE_ATTEMPTS = 2;
 
 function parseIntermediateFormatOrThrow(
   intermediate: unknown
@@ -48,19 +50,11 @@ function parseIntermediateFormatOrThrow(
 }
 
 function resolveModelConfig(): {
-  primaryModelId: string;
-  fallbackModelId: string;
-  fallbackEnabled: boolean;
+  modelId: string;
 } {
-  const primaryModelId =
-    process.env.MODEL_NAME?.trim() || DEFAULT_PRIMARY_MODEL_ID;
-  const fallbackModelId =
-    process.env.MODEL_FALLBACK_NAME?.trim() || DEFAULT_FALLBACK_MODEL_ID;
-  const fallbackEnabled =
-    process.env.SKETCHI_DISABLE_MODEL_FALLBACK !== "1" &&
-    fallbackModelId !== primaryModelId;
-
-  return { primaryModelId, fallbackModelId, fallbackEnabled };
+  return {
+    modelId: process.env.MODEL_NAME?.trim() || DEFAULT_OPENROUTER_MODEL,
+  };
 }
 
 function normalizeMaxSteps(maxSteps: number | undefined): number {
@@ -77,38 +71,41 @@ function normalizeTimeoutMs(timeoutMs: number | undefined): number {
   return Math.max(5000, timeoutMs);
 }
 
-async function runAttemptWithOptionalFallback<T>(params: {
+async function runAttemptWithRetry<T>(params: {
   traceId: string;
-  primaryModelId: string;
-  fallbackModelId: string;
-  fallbackEnabled: boolean;
+  modelId: string;
   runAttempt: (modelId: string) => Promise<T>;
 }): Promise<{ result: T; usedModelId: string }> {
-  try {
-    const result = await params.runAttempt(params.primaryModelId);
-    return { result, usedModelId: params.primaryModelId };
-  } catch (error) {
-    if (!params.fallbackEnabled) {
-      throw error;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < MAX_INTERMEDIATE_ATTEMPTS; attempt += 1) {
+    try {
+      const result = await params.runAttempt(params.modelId);
+      return { result, usedModelId: params.modelId };
+    } catch (error) {
+      lastError = error;
+      if (attempt + 1 >= MAX_INTERMEDIATE_ATTEMPTS) {
+        break;
+      }
+
+      logEventSafely({
+        traceId: params.traceId,
+        actionName: "modifyIntermediate",
+        component: "ai",
+        op: "ai.retry",
+        stage: "intermediate.retry",
+        status: "warning",
+        provider: "openrouter",
+        modelId: params.modelId,
+        attempt: attempt + 1,
+        maxAttempts: MAX_INTERMEDIATE_ATTEMPTS,
+        errorName: error instanceof Error ? error.name : undefined,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
     }
-
-    logEventSafely({
-      traceId: params.traceId,
-      actionName: "modifyIntermediate",
-      component: "ai",
-      op: "ai.fallback",
-      stage: "intermediate.fallback",
-      status: "warning",
-      provider: "openrouter",
-      fromModelId: params.primaryModelId,
-      modelId: params.fallbackModelId,
-      errorName: error instanceof Error ? error.name : undefined,
-      errorMessage: error instanceof Error ? error.message : String(error),
-    });
-
-    const result = await params.runAttempt(params.fallbackModelId);
-    return { result, usedModelId: params.fallbackModelId };
   }
+
+  throw lastError;
 }
 
 function buildModifyPrompt(params: {
@@ -145,8 +142,7 @@ export async function modifyIntermediate(
   const baseNodeCount = parsed.nodes.length;
   const baseEdgeCount = parsed.edges.length;
 
-  const { primaryModelId, fallbackModelId, fallbackEnabled } =
-    resolveModelConfig();
+  const { modelId } = resolveModelConfig();
   const maxSteps = normalizeMaxSteps(options.maxSteps);
   const timeoutMs = normalizeTimeoutMs(options.timeoutMs);
 
@@ -238,11 +234,9 @@ export async function modifyIntermediate(
     return result;
   };
 
-  const { result, usedModelId } = await runAttemptWithOptionalFallback({
+  const { result, usedModelId } = await runAttemptWithRetry({
     traceId,
-    primaryModelId,
-    fallbackModelId,
-    fallbackEnabled,
+    modelId,
     runAttempt,
   });
 

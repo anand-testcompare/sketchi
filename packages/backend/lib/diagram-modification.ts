@@ -111,6 +111,134 @@ export interface ExcalidrawElementLike {
   [key: string]: unknown;
 }
 
+function getArrowBindingIds(element: ExcalidrawElementLike): {
+  endId: string | null;
+  startId: string | null;
+} {
+  const startId =
+    (element.startBinding as { elementId?: string } | undefined)?.elementId ??
+    (element.start as { id?: string } | undefined)?.id ??
+    null;
+  const endId =
+    (element.endBinding as { elementId?: string } | undefined)?.elementId ??
+    (element.end as { id?: string } | undefined)?.id ??
+    null;
+
+  return { startId, endId };
+}
+
+function hasBoundElementReference(
+  element: ExcalidrawElementLike,
+  targetId: string
+): boolean {
+  if (!Array.isArray(element.boundElements)) {
+    return false;
+  }
+
+  return element.boundElements.some((bound) => {
+    const boundId =
+      typeof bound === "object" && bound && "id" in bound
+        ? (bound as { id?: unknown }).id
+        : null;
+    return boundId === targetId;
+  });
+}
+
+function getBoundElementIds(element: ExcalidrawElementLike): string[] {
+  if (!Array.isArray(element.boundElements)) {
+    return [];
+  }
+
+  return element.boundElements.flatMap((bound) => {
+    const boundId =
+      typeof bound === "object" && bound && "id" in bound
+        ? (bound as { id?: unknown }).id
+        : null;
+    return typeof boundId === "string" ? [boundId] : [];
+  });
+}
+
+function validateArrowBinding(
+  element: ExcalidrawElementLike,
+  elementMap: Map<string, ExcalidrawElementLike>
+): DiagramModificationIssue[] {
+  const issues: DiagramModificationIssue[] = [];
+  const { startId, endId } = getArrowBindingIds(element);
+
+  if ((startId && !endId) || (!startId && endId)) {
+    issues.push({
+      code: "incomplete-arrow-binding",
+      message: `Arrow '${element.id}' must bind to both a start and end element`,
+      elementId: element.id,
+    });
+  }
+
+  for (const targetId of [startId, endId]) {
+    if (!targetId) {
+      continue;
+    }
+
+    const target = elementMap.get(targetId);
+    if (!target || hasBoundElementReference(target, element.id)) {
+      continue;
+    }
+
+    issues.push({
+      code: "inconsistent-arrow-binding",
+      message: `Arrow '${element.id}' binds to '${targetId}' but '${targetId}' does not list the arrow in boundElements`,
+      elementId: element.id,
+    });
+  }
+
+  return issues;
+}
+
+function validateShapeBoundArrows(
+  element: ExcalidrawElementLike,
+  elementMap: Map<string, ExcalidrawElementLike>
+): DiagramModificationIssue[] {
+  const issues: DiagramModificationIssue[] = [];
+
+  for (const boundId of getBoundElementIds(element)) {
+    const target = elementMap.get(boundId);
+    if (!target || target.type !== "arrow") {
+      continue;
+    }
+
+    const { startId, endId } = getArrowBindingIds(target);
+    if (startId === element.id || endId === element.id) {
+      continue;
+    }
+
+    issues.push({
+      code: "inconsistent-bound-elements",
+      message: `Element '${element.id}' lists arrow '${boundId}' in boundElements but the arrow is not bound back to it`,
+      elementId: element.id,
+      path: "boundElements",
+    });
+  }
+
+  return issues;
+}
+
+function validateBindingConsistency(
+  elements: ExcalidrawElementLike[]
+): DiagramModificationIssue[] {
+  const issues: DiagramModificationIssue[] = [];
+  const elementMap = new Map(elements.map((element) => [element.id, element]));
+
+  for (const element of elements) {
+    if (element.type === "arrow") {
+      issues.push(...validateArrowBinding(element, elementMap));
+      continue;
+    }
+
+    issues.push(...validateShapeBoundArrows(element, elementMap));
+  }
+
+  return issues;
+}
+
 export function validateElements(
   elements: ExcalidrawElementLike[]
 ): DiagramModificationIssue[] {
@@ -157,6 +285,7 @@ export function validateElements(
     }
   }
 
+  issues.push(...validateBindingConsistency(elements));
   return issues;
 }
 

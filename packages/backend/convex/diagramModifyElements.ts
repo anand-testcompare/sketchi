@@ -2,7 +2,10 @@
 
 import { Output, stepCountIs, ToolLoopAgent, tool } from "ai";
 import { v } from "convex/values";
-import { createOpenRouterChatModel } from "../lib/ai/openrouter";
+import {
+  createOpenRouterChatModel,
+  DEFAULT_OPENROUTER_MODEL,
+} from "../lib/ai/openrouter";
 import type { DiagramElementDiff } from "../lib/diagram-modification";
 import {
   applyDiagramDiff,
@@ -16,7 +19,7 @@ import { createTraceId } from "./lib/trace";
 const DEFAULT_MAX_STEPS = 5;
 const MAX_TIMEOUT_MS = 240_000;
 const DEFAULT_MODEL =
-  process.env.MODEL_NAME?.trim() || "google/gemini-3-flash-preview";
+  process.env.MODEL_NAME?.trim() || DEFAULT_OPENROUTER_MODEL;
 
 const GEOMETRY_FIELD_ASSIGNMENT_RE = /\b(x|y|width|height)\s*=/i;
 

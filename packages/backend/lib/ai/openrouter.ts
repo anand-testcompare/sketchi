@@ -2,6 +2,8 @@ import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import type { LanguageModel } from "ai";
 import { appUrl, envLabel } from "../app-url";
 
+export const DEFAULT_OPENROUTER_MODEL = "google/gemini-3.1-flash-lite-preview";
+
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
   compatibility: "strict",

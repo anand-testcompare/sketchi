@@ -4,7 +4,10 @@ import { stepCountIs, streamText, tool } from "ai";
 import { v } from "convex/values";
 import { z } from "zod";
 import { modifyIntermediate } from "../lib/agents";
-import { createOpenRouterChatModel } from "../lib/ai/openrouter";
+import {
+  createOpenRouterChatModel,
+  DEFAULT_OPENROUTER_MODEL,
+} from "../lib/ai/openrouter";
 import { IntermediateFormatSchema } from "../lib/diagram-intermediate";
 import {
   renderIntermediateDiagram,
@@ -16,7 +19,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { type ActionCtx, internalAction } from "./_generated/server";
 
 const DEFAULT_MODEL =
-  process.env.MODEL_NAME?.trim() || "google/gemini-3-flash-preview";
+  process.env.MODEL_NAME?.trim() || DEFAULT_OPENROUTER_MODEL;
 const MAX_REASONING_SUMMARY_CHARS = 600;
 const ASSISTANT_FLUSH_INTERVAL_MS = 120;
 const STOP_POLL_INTERVAL_MS = 700;
@@ -628,6 +631,27 @@ async function executeTweakTool(input: {
     };
   }
 
+  if (looksLikeStructuralPrompt(input.run.prompt)) {
+    const reason =
+      "Request changes structure or linkages. Use restructureDiagram instead.";
+    await upsertToolMessage(input.ctx, {
+      ...input.toolMeta,
+      toolCallId: input.toolCallId,
+      toolName: "tweakDiagram",
+      status: "error",
+      error: reason,
+      toolOutput: {
+        status: "failed",
+        reason,
+      },
+    });
+
+    return {
+      status: "failed",
+      reason,
+    };
+  }
+
   try {
     const result = await input.ctx.runAction(
       api.diagramModifyElements.diagramModifyElements,
@@ -742,7 +766,7 @@ function createTools(input: {
     }),
     tweakDiagram: tool({
       description:
-        "Apply tactical tweaks to the current scene (labels/colors/minor edits) without full structural relayout.",
+        "Apply tactical tweaks to the current scene (labels, colors, copy, minor style edits). Do not use this for arrows, bindings, connections, node changes, or layout changes.",
       inputSchema: z.object({}),
       execute: async (_toolInput, options) => {
         return await executeTweakTool({
@@ -760,6 +784,10 @@ function createTools(input: {
 
 function looksLikeTweakPrompt(prompt: string): boolean {
   const normalized = prompt.toLowerCase();
+  if (looksLikeStructuralPrompt(normalized)) {
+    return false;
+  }
+
   return (
     normalized.includes("rename") ||
     normalized.includes("label") ||
@@ -771,6 +799,32 @@ function looksLikeTweakPrompt(prompt: string): boolean {
     normalized.includes("align") ||
     normalized.includes("small tweak") ||
     normalized.includes("minor")
+  );
+}
+
+function looksLikeStructuralPrompt(prompt: string): boolean {
+  const normalized = prompt.toLowerCase();
+  return (
+    normalized.includes("add node") ||
+    normalized.includes("remove node") ||
+    normalized.includes("arrow") ||
+    normalized.includes("arrows") ||
+    normalized.includes("binding") ||
+    normalized.includes("bindings") ||
+    normalized.includes("connect") ||
+    normalized.includes("connection") ||
+    normalized.includes("connections") ||
+    normalized.includes("disconnect") ||
+    normalized.includes("edge") ||
+    normalized.includes("edges") ||
+    normalized.includes("flow") ||
+    normalized.includes("layout") ||
+    normalized.includes("link") ||
+    normalized.includes("links") ||
+    normalized.includes("node") ||
+    normalized.includes("nodes") ||
+    normalized.includes("rewire") ||
+    normalized.includes("restructure")
   );
 }
 
@@ -908,6 +962,7 @@ async function runAgentStream(input: {
         "- Use generateDiagram when the scene is blank or user asks for a full new diagram.",
         "- Use tweakDiagram for small text/style updates.",
         "- Use restructureDiagram for structural changes.",
+        "- Never use tweakDiagram for arrows, links, bindings, connections, adding/removing nodes, or layout changes.",
         "After tool completion, reply with 1-2 concise sentences about what changed.",
         "Do not mention internal IDs or hidden implementation details.",
       ].join("\n"),
