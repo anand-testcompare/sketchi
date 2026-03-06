@@ -1,6 +1,9 @@
 import { Output, stepCountIs, ToolLoopAgent } from "ai";
 import { hashString, logEventSafely } from "../../convex/lib/observability";
-import { createOpenRouterChatModel } from "../ai/openrouter";
+import {
+  createOpenRouterChatModel,
+  DEFAULT_OPENROUTER_MODEL,
+} from "../ai/openrouter";
 import { IntermediateFormatSchema } from "../diagram-intermediate";
 import { createValidateIntermediateTool } from "./intermediate-validation";
 import { getProfile } from "./profile-registry";
@@ -75,14 +78,13 @@ function isRetryableIntermediateReason(
 
 function wrapIntermediateGenerationFailure(params: {
   traceId: string;
-  primaryModelId: string;
-  fallbackModelId: string;
+  modelId: string;
   attempts: IntermediateGenerationAttemptFailure[];
   reason: IntermediateGenerationFailureReason;
   cause: unknown;
 }): Error & { cause?: unknown } {
   const wrapped: Error & { cause?: unknown } = new Error(
-    `SKETCHI_AI_INTERMEDIATE_FAILED reason=${params.reason} traceId=${params.traceId} models=${params.primaryModelId}->${params.fallbackModelId} attempts=${JSON.stringify(
+    `SKETCHI_AI_INTERMEDIATE_FAILED reason=${params.reason} traceId=${params.traceId} model=${params.modelId} attempts=${JSON.stringify(
       params.attempts
     )}`
   );
@@ -92,24 +94,14 @@ function wrapIntermediateGenerationFailure(params: {
 
 function decideNextAfterIntermediateFailure(params: {
   traceId: string;
-  primaryModelId: string;
-  fallbackModelId: string;
-  attempts: IntermediateGenerationAttemptFailure[];
-  attemptPlan: string[];
-  attemptIndex: number;
   modelId: string;
+  attempts: IntermediateGenerationAttemptFailure[];
+  attemptIndex: number;
+  maxAttempts: number;
   error: unknown;
 }): { shouldContinue: true } | { shouldContinue: false; error: Error } {
-  const {
-    traceId,
-    primaryModelId,
-    fallbackModelId,
-    attempts,
-    attemptPlan,
-    attemptIndex,
-    modelId,
-    error,
-  } = params;
+  const { traceId, modelId, attempts, attemptIndex, maxAttempts, error } =
+    params;
 
   const reason = classifyIntermediateErrorReason(error);
   attempts.push({
@@ -124,8 +116,7 @@ function decideNextAfterIntermediateFailure(params: {
       shouldContinue: false,
       error: wrapIntermediateGenerationFailure({
         traceId,
-        primaryModelId,
-        fallbackModelId,
+        modelId,
         attempts,
         reason,
         cause: error,
@@ -133,14 +124,12 @@ function decideNextAfterIntermediateFailure(params: {
     };
   }
 
-  const nextModelId = attemptPlan[attemptIndex + 1];
-  if (!nextModelId) {
+  if (attemptIndex + 1 >= maxAttempts) {
     return {
       shouldContinue: false,
       error: wrapIntermediateGenerationFailure({
         traceId,
-        primaryModelId,
-        fallbackModelId,
+        modelId,
         attempts,
         reason,
         cause: error,
@@ -148,82 +137,41 @@ function decideNextAfterIntermediateFailure(params: {
     };
   }
 
-  if (nextModelId === modelId) {
-    console.log("[ai.generateIntermediate.retry]", {
-      traceId,
-      modelId,
-      reason,
-    });
-    logEventSafely({
-      traceId,
-      actionName: "generateIntermediate",
-      component: "ai",
-      op: "ai.retry",
-      stage: "intermediate.retry",
-      status: "warning",
-      modelId,
-      provider: "openrouter",
-      reason,
-    });
-  } else {
-    console.log("[ai.generateIntermediate.fallback]", {
-      traceId,
-      fromModelId: modelId,
-      toModelId: nextModelId,
-      reason,
-    });
-    logEventSafely({
-      traceId,
-      actionName: "generateIntermediate",
-      component: "ai",
-      op: "ai.fallback",
-      stage: "intermediate.fallback",
-      status: "warning",
-      modelId: nextModelId,
-      provider: "openrouter",
-      fromModelId: modelId,
-      reason,
-    });
-  }
+  console.log("[ai.generateIntermediate.retry]", {
+    traceId,
+    modelId,
+    reason,
+  });
+  logEventSafely({
+    traceId,
+    actionName: "generateIntermediate",
+    component: "ai",
+    op: "ai.retry",
+    stage: "intermediate.retry",
+    status: "warning",
+    modelId,
+    provider: "openrouter",
+    reason,
+  });
 
   return { shouldContinue: true };
 }
 
-async function runWithRetryAndOptionalFallback<T>(params: {
+async function runWithRetry<T>(params: {
   traceId: string;
-  primaryModelId: string;
-  fallbackModelId: string;
-  fallbackEnabled: boolean;
+  modelId: string;
+  maxAttempts: number;
   runAttempt: (modelId: string) => Promise<T>;
 }): Promise<{
   result: T;
   usedModelId: string;
   attempts: IntermediateGenerationAttemptFailure[];
 }> {
-  const {
-    traceId,
-    primaryModelId,
-    fallbackModelId,
-    fallbackEnabled,
-    runAttempt,
-  } = params;
+  const { traceId, modelId, maxAttempts, runAttempt } = params;
 
   const attempts: IntermediateGenerationAttemptFailure[] = [];
-  const hasFallback = fallbackEnabled && fallbackModelId !== primaryModelId;
-  const attemptPlan: string[] = hasFallback
-    ? [primaryModelId, fallbackModelId]
-    : [primaryModelId, primaryModelId];
 
-  for (
-    let attemptIndex = 0;
-    attemptIndex < attemptPlan.length;
-    attemptIndex++
-  ) {
-    const modelId = attemptPlan[attemptIndex];
-    if (!modelId) {
-      continue;
-    }
-
+  for (let attemptIndex = 0; attemptIndex < maxAttempts; attemptIndex++) {
     try {
       logEventSafely({
         traceId,
@@ -233,7 +181,7 @@ async function runWithRetryAndOptionalFallback<T>(params: {
         stage: "intermediate.attempt",
         status: "success",
         attempt: attemptIndex + 1,
-        maxAttempts: attemptPlan.length,
+        maxAttempts,
         modelId,
         provider: "openrouter",
       });
@@ -242,12 +190,10 @@ async function runWithRetryAndOptionalFallback<T>(params: {
     } catch (error) {
       const decision = decideNextAfterIntermediateFailure({
         traceId,
-        primaryModelId,
-        fallbackModelId,
-        attempts,
-        attemptPlan,
-        attemptIndex,
         modelId,
+        attempts,
+        attemptIndex,
+        maxAttempts,
         error,
       });
       logEventSafely(
@@ -259,7 +205,7 @@ async function runWithRetryAndOptionalFallback<T>(params: {
           stage: "intermediate.attempt",
           status: "failed",
           attempt: attemptIndex + 1,
-          maxAttempts: attemptPlan.length,
+          maxAttempts,
           modelId,
           provider: "openrouter",
           errorName: error instanceof Error ? error.name : undefined,
@@ -275,8 +221,7 @@ async function runWithRetryAndOptionalFallback<T>(params: {
 
   throw wrapIntermediateGenerationFailure({
     traceId,
-    primaryModelId,
-    fallbackModelId,
+    modelId,
     attempts: [],
     reason: "UNKNOWN",
     cause: new Error("unreachable"),
@@ -302,20 +247,13 @@ export async function generateIntermediate(
   const promptLength = prompt.length;
   const promptHash = hashString(prompt);
 
-  const DEFAULT_PRIMARY_MODEL_ID = "google/gemini-3-flash-preview";
-  const primaryModelId =
-    process.env.MODEL_NAME?.trim() || DEFAULT_PRIMARY_MODEL_ID;
-
-  const envFallbackModelId = process.env.MODEL_FALLBACK_NAME?.trim();
-  const fallbackModelId = envFallbackModelId || "z-ai/glm-4.7";
-  const fallbackEnabled =
-    process.env.SKETCHI_DISABLE_MODEL_FALLBACK !== "1" &&
-    fallbackModelId !== primaryModelId;
+  const modelId = process.env.MODEL_NAME?.trim() || DEFAULT_OPENROUTER_MODEL;
 
   const rawTimeoutMs = Number(process.env.SKETCHI_AI_INTERMEDIATE_TIMEOUT_MS);
   const GENERATE_TIMEOUT_MS = Number.isFinite(rawTimeoutMs)
     ? Math.max(5000, rawTimeoutMs)
     : 60_000;
+  const MAX_GENERATION_ATTEMPTS = 2;
 
   const createAgent = (modelId: string) => {
     let stepIndex = 0;
@@ -333,7 +271,7 @@ export async function generateIntermediate(
       tools: {
         validateIntermediate: validateTool,
       },
-      stopWhen: stepCountIs(5),
+      stopWhen: stepCountIs(7),
       onStepFinish: ({ usage, toolCalls }) => {
         const now = Date.now();
         stepIndex += 1;
@@ -408,14 +346,12 @@ export async function generateIntermediate(
   let result: AgentGenerateResult;
   let usedModelId: string;
   try {
-    ({ result, usedModelId } =
-      await runWithRetryAndOptionalFallback<AgentGenerateResult>({
-        traceId,
-        primaryModelId,
-        fallbackModelId,
-        fallbackEnabled,
-        runAttempt,
-      }));
+    ({ result, usedModelId } = await runWithRetry<AgentGenerateResult>({
+      traceId,
+      modelId,
+      maxAttempts: MAX_GENERATION_ATTEMPTS,
+      runAttempt,
+    }));
   } catch (error) {
     logEventSafely(
       {
@@ -426,7 +362,7 @@ export async function generateIntermediate(
         stage: "intermediate.complete",
         status: "failed",
         durationMs: Date.now() - start,
-        modelId: primaryModelId,
+        modelId,
         provider: "openrouter",
         errorName: error instanceof Error ? error.name : undefined,
         errorMessage: error instanceof Error ? error.message : String(error),

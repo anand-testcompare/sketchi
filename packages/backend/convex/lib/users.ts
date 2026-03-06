@@ -17,6 +17,23 @@ const ADMIN_SUBJECTS = new Set(
     .filter((value) => value.length > 0)
 );
 
+const DEFAULT_PUBLIC_ICON_LIBRARY_EDITOR_EMAILS = ["anand@shpit.dev"];
+
+const PUBLIC_ICON_LIBRARY_EDITOR_EMAILS = new Set([
+  ...DEFAULT_PUBLIC_ICON_LIBRARY_EDITOR_EMAILS,
+  ...(process.env.SKETCHI_ICON_LIBRARY_EDITOR_EMAILS ?? "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter((value) => value.length > 0),
+]);
+
+const PUBLIC_ICON_LIBRARY_EDITOR_SUBJECTS = new Set(
+  (process.env.SKETCHI_ICON_LIBRARY_EDITOR_SUBJECTS ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0)
+);
+
 function normalizeEmail(email: string | null | undefined): string | undefined {
   if (!email) {
     return undefined;
@@ -65,6 +82,20 @@ export function isIdentityAdmin(identity: UserIdentity): boolean {
   );
 }
 
+export function canIdentityManagePublicIconLibraries(
+  identity: UserIdentity
+): boolean {
+  if (isIdentityAdmin(identity)) {
+    return true;
+  }
+
+  const email = getIdentityEmail(identity);
+  return (
+    (email ? PUBLIC_ICON_LIBRARY_EDITOR_EMAILS.has(email) : false) ||
+    PUBLIC_ICON_LIBRARY_EDITOR_SUBJECTS.has(getIdentityExternalId(identity))
+  );
+}
+
 export async function findUserByExternalId(
   ctx: QueryCtx | MutationCtx,
   externalId: string
@@ -79,6 +110,7 @@ export async function getViewerWithUser(ctx: QueryCtx | MutationCtx): Promise<{
   identity: UserIdentity;
   user: Doc<"users"> | null;
   isAdmin: boolean;
+  canManagePublicIconLibraries: boolean;
 }> {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) {
@@ -91,6 +123,8 @@ export async function getViewerWithUser(ctx: QueryCtx | MutationCtx): Promise<{
     identity,
     user,
     isAdmin: isIdentityAdmin(identity),
+    canManagePublicIconLibraries:
+      canIdentityManagePublicIconLibraries(identity),
   };
 }
 
@@ -98,8 +132,10 @@ export async function ensureViewerUser(ctx: MutationCtx): Promise<{
   identity: UserIdentity;
   user: Doc<"users">;
   isAdmin: boolean;
+  canManagePublicIconLibraries: boolean;
 }> {
-  const { identity, user, isAdmin } = await getViewerWithUser(ctx);
+  const { identity, user, isAdmin, canManagePublicIconLibraries } =
+    await getViewerWithUser(ctx);
   const externalId = getIdentityExternalId(identity);
   const email = getIdentityEmail(identity);
   const name = getIdentityName(identity);
@@ -125,6 +161,7 @@ export async function ensureViewerUser(ctx: MutationCtx): Promise<{
       identity,
       user: inserted,
       isAdmin,
+      canManagePublicIconLibraries,
     };
   }
 
@@ -151,6 +188,7 @@ export async function ensureViewerUser(ctx: MutationCtx): Promise<{
       identity,
       user: refreshed,
       isAdmin,
+      canManagePublicIconLibraries,
     };
   }
 
@@ -158,5 +196,6 @@ export async function ensureViewerUser(ctx: MutationCtx): Promise<{
     identity,
     user,
     isAdmin,
+    canManagePublicIconLibraries,
   };
 }

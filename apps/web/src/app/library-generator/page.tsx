@@ -9,15 +9,24 @@ import { toast } from "sonner";
 
 import LibraryCard from "@/components/icon-library/library-card";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function LibraryGeneratorPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const viewer = useQuery(api.users.me, user ? {} : "skip");
   const libraries = useQuery(api.iconLibraries.list);
   const createLibrary = useMutation(api.iconLibraries.create);
   const [libraryName, setLibraryName] = useState("");
+  const [libraryVisibility, setLibraryVisibility] = useState<
+    "private" | "public"
+  >("private");
   const [isCreating, setIsCreating] = useState(false);
+  const canManagePublicIconLibraries = Boolean(
+    viewer?.identity.canManagePublicIconLibraries
+  );
 
   let createButtonLabel = "Sign in";
   if (user) {
@@ -71,7 +80,13 @@ export default function LibraryGeneratorPage() {
 
     try {
       const name = libraryName.trim() || "Untitled Library";
-      const id = await createLibrary({ name, visibility: "private" });
+      const id = await createLibrary({
+        name,
+        visibility:
+          canManagePublicIconLibraries && libraryVisibility === "public"
+            ? "public"
+            : "private",
+      });
       router.push(`/library-generator/${id}`);
     } catch (error) {
       const message =
@@ -100,6 +115,23 @@ export default function LibraryGeneratorPage() {
             Sign in to create private libraries and upload icons.
           </p>
         )}
+        {user && canManagePublicIconLibraries ? (
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={libraryVisibility === "public"}
+              id="library-visibility-public"
+              onCheckedChange={(checked) =>
+                setLibraryVisibility(checked === true ? "public" : "private")
+              }
+            />
+            <Label
+              className="text-muted-foreground text-sm"
+              htmlFor="library-visibility-public"
+            >
+              Create as public library
+            </Label>
+          </div>
+        ) : null}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Input
             className="border-2 shadow-sm"

@@ -84,6 +84,7 @@
 - [What is Sketchi?](#what-is-sketchi)
 - [Screenshots](#screenshots)
 - [Architecture](#architecture)
+- [Model Strategy](#model-strategy)
 - [Features](#features)
 - [Quick Start](#quick-start)
 - [Development](#development)
@@ -117,6 +118,19 @@
 3. Convex functions handle business logic, AI calls, and database operations
 4. File uploads stored in Convex storage, metadata in Convex database
 5. AI diagram generation uses Vercel AI SDK through Convex actions
+
+---
+
+## Model Strategy
+
+Sketchi uses a multi-model approach via OpenRouter to balance reasoning, vision, and latency.
+
+| Role | Model | Primary Use Case |
+|------|-------|------------------|
+| **Brain** | `google/gemini-3-flash-preview` | Diagram generation, structural analysis, and visual grading. |
+| **Driver** | `google/gemini-2.5-flash-lite` | E2E test execution (Stagehand) and UI interaction. |
+| **Experimental** | `google/gemini-3.1-flash-lite-preview` | Low-latency validation, JSON repair, and classification. |
+| **Fallback** | `z-ai/glm-4.7` | High-reliability secondary model for diagram retries. |
 
 ---
 

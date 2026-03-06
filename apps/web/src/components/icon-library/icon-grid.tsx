@@ -14,6 +14,7 @@ export interface IconGridItem {
 }
 
 interface IconGridProps {
+  canEdit?: boolean;
   icons: IconGridItem[];
   isBusy?: boolean;
   onDeleteSelected: (ids: string[]) => void;
@@ -22,6 +23,7 @@ interface IconGridProps {
 }
 
 export default function IconGrid({
+  canEdit = true,
   icons,
   onDeleteSelected,
   onMove,
@@ -66,6 +68,41 @@ export default function IconGrid({
     );
   }
 
+  let actionControls = (
+    <span className="text-muted-foreground text-xs">Read-only</span>
+  );
+
+  if (isEditMode) {
+    actionControls = (
+      <>
+        <Button onClick={exitEditMode} size="sm" type="button" variant="ghost">
+          Cancel
+        </Button>
+        <Button
+          disabled={selectedIds.size === 0 || isBusy}
+          onClick={handleDeleteSelected}
+          size="sm"
+          type="button"
+          variant="destructive"
+        >
+          Delete Selected ({selectedIds.size})
+        </Button>
+      </>
+    );
+  } else if (canEdit) {
+    actionControls = (
+      <Button
+        disabled={isBusy}
+        onClick={() => setIsEditMode(true)}
+        size="sm"
+        type="button"
+        variant="outline"
+      >
+        Edit
+      </Button>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-end gap-2">
@@ -91,37 +128,7 @@ export default function IconGrid({
             <Plus />
           </Button>
         </div>
-        {isEditMode ? (
-          <>
-            <Button
-              onClick={exitEditMode}
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              Cancel
-            </Button>
-            <Button
-              disabled={selectedIds.size === 0 || isBusy}
-              onClick={handleDeleteSelected}
-              size="sm"
-              type="button"
-              variant="destructive"
-            >
-              Delete Selected ({selectedIds.size})
-            </Button>
-          </>
-        ) : (
-          <Button
-            disabled={isBusy}
-            onClick={() => setIsEditMode(true)}
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            Edit
-          </Button>
-        )}
+        {actionControls}
       </div>
 
       <div
@@ -178,7 +185,7 @@ export default function IconGrid({
               {!isEditMode && (
                 <div className="flex items-center gap-1">
                   <Button
-                    disabled={isBusy || !canMoveLeft}
+                    disabled={isBusy || !canEdit || !canMoveLeft}
                     onClick={() => onMove(icon.id, "left")}
                     size="xs"
                     type="button"
@@ -187,7 +194,7 @@ export default function IconGrid({
                     ←
                   </Button>
                   <Button
-                    disabled={isBusy || !canMoveRight}
+                    disabled={isBusy || !canEdit || !canMoveRight}
                     onClick={() => onMove(icon.id, "right")}
                     size="xs"
                     type="button"

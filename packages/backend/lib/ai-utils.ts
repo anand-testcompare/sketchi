@@ -1,13 +1,16 @@
 import { generateObject, generateText, type LanguageModel } from "ai";
 import type { z } from "zod";
-import { createOpenRouterChatModel } from "./ai/openrouter";
+import {
+  createOpenRouterChatModel,
+  DEFAULT_OPENROUTER_MODEL,
+} from "./ai/openrouter";
 
 export const AI_CONFIG = {
   DEFAULT_TIMEOUT_MS: 60_000,
   MAX_RETRIES: 3,
   BASE_DELAY_MS: 1000,
   MAX_DELAY_MS: 30_000,
-  DEFAULT_MODEL: "google/gemini-3-flash-preview",
+  DEFAULT_MODEL: DEFAULT_OPENROUTER_MODEL,
 } as const;
 
 export interface AICallOptions {

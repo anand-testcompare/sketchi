@@ -295,8 +295,14 @@ export default function LibraryEditorPage({ params }: PageProps) {
         <div className="flex flex-col gap-3">
           <h2 className="font-semibold text-sm">Upload</h2>
           <SvgUploader
-            isUploading={isUploading || !canEdit}
+            disabled={!canEdit}
+            isUploading={isUploading}
             onUpload={handleUpload}
+            statusText={
+              canEdit
+                ? "SVG only, max 256KB each"
+                : "Read-only library. Uploads require edit access."
+            }
           />
         </div>
       </aside>
@@ -317,8 +323,9 @@ export default function LibraryEditorPage({ params }: PageProps) {
         </div>
         <div className="flex-1 overflow-y-auto p-4">
           <IconGrid
+            canEdit={canEdit}
             icons={icons}
-            isBusy={isUploading || isSaving || !canEdit}
+            isBusy={isUploading || isSaving}
             onDeleteSelected={handleDeleteSelected}
             onMove={handleMove}
             styleSettings={styleSettings}
