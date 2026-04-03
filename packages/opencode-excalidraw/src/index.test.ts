@@ -221,6 +221,89 @@ describe("SketchiPlugin", () => {
     }
   });
 
+  test("device-flow callback returns the rotated refresh token", async () => {
+    const originalFetch = globalThis.fetch;
+    const originalSetTimeout = globalThis.setTimeout;
+    const requestedUrls: string[] = [];
+
+    globalThis.fetch = ((input) => {
+      let url: string;
+      if (typeof input === "string") {
+        url = input;
+      } else if (input instanceof URL) {
+        url = input.toString();
+      } else {
+        url = input.url;
+      }
+
+      requestedUrls.push(url);
+
+      if (url.endsWith("/api/auth/device/start")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              deviceCode: "device-code",
+              userCode: "ABCD-EFGH",
+              interval: 1,
+              expiresIn: 600,
+              verificationUrl: "https://www.sketchi.app/device",
+            }),
+            {
+              status: 200,
+              headers: { "content-type": "application/json" },
+            }
+          )
+        );
+      }
+
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            status: "success",
+            accessToken: "fresh-access-token",
+            refreshToken: "fresh-refresh-token",
+            accessTokenExpiresAt: Date.now() + 60_000,
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }
+        )
+      );
+    }) as typeof fetch;
+
+    globalThis.setTimeout = ((handler: TimerHandler) => {
+      if (typeof handler === "function") {
+        handler();
+      }
+      return 0 as never;
+    }) as typeof setTimeout;
+
+    try {
+      const plugin = await SketchiPlugin(createPluginInput());
+      const method = plugin.auth?.methods?.[0];
+      expect(method?.type).toBe("oauth");
+
+      const authStart = await method?.authorize();
+      const authResult = await authStart?.callback();
+
+      expect(authResult).toEqual({
+        type: "success",
+        provider: "sketchi",
+        access: "fresh-access-token",
+        refresh: "fresh-refresh-token",
+        expires: authResult?.expires,
+      });
+      expect(requestedUrls).toEqual([
+        "https://www.sketchi.app/api/auth/device/start",
+        "https://www.sketchi.app/api/auth/device/token",
+      ]);
+    } finally {
+      globalThis.fetch = originalFetch;
+      globalThis.setTimeout = originalSetTimeout;
+    }
+  });
+
   test("diagram_grade blocks concurrent calls for the same message", async () => {
     const deferred = createDeferred<{
       data: { parts: Array<{ type: string; text: string }> };
@@ -308,5 +391,61 @@ describe("SketchiPlugin", () => {
     ).rejects.toThrow("one image per message");
 
     expect(promptCalls.length).toBe(1);
+  });
+
+  test("diagram tools fail fast when stored Sketchi oauth is expired and refresh fails", async () => {
+    const originalFetch = globalThis.fetch;
+    const authSetCalls: unknown[] = [];
+
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          status: "invalid_grant",
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }
+      )) as typeof fetch;
+
+    try {
+      const plugin = await SketchiPlugin(
+        createPluginInput({
+          auth: {
+            set: (input: unknown) => {
+              authSetCalls.push(input);
+              return Promise.resolve();
+            },
+          },
+        })
+      );
+
+      await plugin.auth?.loader?.(
+        async () => ({
+          type: "oauth",
+          access: "expired-access",
+          refresh: "legacy-refresh",
+          expires: Date.now() - 1,
+        }),
+        {} as never
+      );
+
+      const fromPrompt = plugin.tool?.diagram_from_prompt;
+      expect(fromPrompt).toBeDefined();
+      if (!fromPrompt) {
+        throw new Error("diagram_from_prompt tool missing");
+      }
+
+      await expect(
+        fromPrompt.execute(
+          { prompt: "Create a simple flowchart." },
+          createToolContext("message-expired-sketchi-auth") as never
+        )
+      ).rejects.toThrow("opencode auth login --provider sketchi");
+
+      expect(authSetCalls).toHaveLength(1);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

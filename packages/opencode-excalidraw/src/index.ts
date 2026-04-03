@@ -11,6 +11,15 @@ import { gradeDiagram } from "./lib/grade";
 import { buildDefaultPngPath, resolveOutputPath, writePng } from "./lib/output";
 import { closeBrowser, renderElementsToPng } from "./lib/render";
 import { resolveExcalidrawFromShareUrl } from "./lib/resolve-share-url";
+import {
+  resolveSessionCandidate,
+  withRecoveredCachedSession,
+} from "./lib/session-continuity";
+import {
+  accessTokenExpired,
+  isOAuthAuth,
+  refreshSketchiAccessToken,
+} from "./lib/sketchi-oauth";
 import { createToolTraceId } from "./lib/trace";
 
 const DEFAULT_API_BASE = "https://www.sketchi.app";
@@ -218,14 +227,8 @@ function cacheSketchiSession(
   sketchiSessionByOpenCodeSession.set(opencodeSessionID, sketchiSessionID);
 }
 
-function resolveSessionCandidate(input: {
-  explicitSessionId?: string;
-  opencodeSessionID: string;
-}): string | undefined {
-  if (input.explicitSessionId) {
-    return input.explicitSessionId;
-  }
-  return sketchiSessionByOpenCodeSession.get(input.opencodeSessionID);
+function clearCachedSketchiSession(opencodeSessionID: string): void {
+  sketchiSessionByOpenCodeSession.delete(opencodeSessionID);
 }
 
 function createStudioUrl(apiBase: string, sessionId: string): string {
@@ -363,6 +366,7 @@ type DeviceTokenResponse =
   | {
       status: "success";
       accessToken: string;
+      refreshToken: string;
       accessTokenExpiresAt?: number;
     }
   | {
@@ -431,18 +435,27 @@ export const SketchiPlugin: Plugin = (input) => {
 
           const sessionCandidate = resolveSessionCandidate({
             explicitSessionId: args.sessionId,
-            opencodeSessionID: context.sessionID,
+            getCachedSessionId: () =>
+              sketchiSessionByOpenCodeSession.get(context.sessionID),
           });
 
-          const runResult = await runThreadPrompt({
-            apiBase,
-            authorizationHeader,
-            traceId,
-            sessionId: sessionCandidate,
-            prompt: args.prompt,
-            promptMessageId,
-            abort: context.abort,
-            timeoutMs: DEFAULT_THREAD_RUN_TIMEOUT_MS,
+          const runResult = await withRecoveredCachedSession({
+            sessionCandidate,
+            clearCachedSession: () =>
+              clearCachedSketchiSession(context.sessionID),
+            explicitSessionErrorMessage:
+              "Provided Sketchi sessionId was not found. Omit sessionId to create a new diagram.",
+            call: async (sessionId) =>
+              await runThreadPrompt({
+                apiBase,
+                authorizationHeader,
+                traceId,
+                sessionId,
+                prompt: args.prompt,
+                promptMessageId,
+                abort: context.abort,
+                timeoutMs: DEFAULT_THREAD_RUN_TIMEOUT_MS,
+              }),
           });
 
           if (runResult.status !== "persisted") {
@@ -607,10 +620,12 @@ export const SketchiPlugin: Plugin = (input) => {
             prompt: args.request,
           });
 
-          let workingSessionId = resolveSessionCandidate({
+          let sessionCandidate = resolveSessionCandidate({
             explicitSessionId: args.sessionId,
-            opencodeSessionID: context.sessionID,
+            getCachedSessionId: () =>
+              sketchiSessionByOpenCodeSession.get(context.sessionID),
           });
+          let workingSessionId = sessionCandidate.sessionId;
 
           const sceneSeed = await resolveSceneSeed({
             apiBase,
@@ -624,15 +639,27 @@ export const SketchiPlugin: Plugin = (input) => {
           });
 
           if (sceneSeed) {
-            const seeded = await seedSessionFromScene({
-              apiBase,
-              authorizationHeader,
-              traceId,
-              sessionId: workingSessionId,
-              scene: sceneSeed,
-              abort: context.abort,
+            const seeded = await withRecoveredCachedSession({
+              sessionCandidate,
+              clearCachedSession: () =>
+                clearCachedSketchiSession(context.sessionID),
+              explicitSessionErrorMessage:
+                "Provided Sketchi sessionId was not found. Omit sessionId or provide scene input to start a new diagram.",
+              call: async (sessionId) =>
+                await seedSessionFromScene({
+                  apiBase,
+                  authorizationHeader,
+                  traceId,
+                  sessionId,
+                  scene: sceneSeed,
+                  abort: context.abort,
+                }),
             });
             workingSessionId = seeded.sessionId;
+            sessionCandidate = {
+              sessionId: seeded.sessionId,
+              source: "explicit",
+            };
           }
 
           if (!workingSessionId) {
@@ -641,15 +668,32 @@ export const SketchiPlugin: Plugin = (input) => {
             );
           }
 
-          const runResult = await runThreadPrompt({
-            apiBase,
-            authorizationHeader,
-            traceId,
-            sessionId: workingSessionId,
-            prompt: `Tactical tweak request:\\n${args.request}`,
-            promptMessageId,
-            abort: context.abort,
-            timeoutMs: Math.max(serverTimeoutMs, DEFAULT_THREAD_RUN_TIMEOUT_MS),
+          const runResult = await withRecoveredCachedSession({
+            sessionCandidate:
+              workingSessionId === sessionCandidate.sessionId
+                ? sessionCandidate
+                : {
+                    sessionId: workingSessionId,
+                    source: "explicit",
+                  },
+            clearCachedSession: () =>
+              clearCachedSketchiSession(context.sessionID),
+            explicitSessionErrorMessage:
+              "Provided Sketchi sessionId was not found. Supply an existing sessionId, shareUrl, or excalidraw input.",
+            call: async (sessionId) =>
+              await runThreadPrompt({
+                apiBase,
+                authorizationHeader,
+                traceId,
+                sessionId,
+                prompt: `Tactical tweak request:\\n${args.request}`,
+                promptMessageId,
+                abort: context.abort,
+                timeoutMs: Math.max(
+                  serverTimeoutMs,
+                  DEFAULT_THREAD_RUN_TIMEOUT_MS
+                ),
+              }),
           });
 
           if (runResult.status !== "persisted") {
@@ -816,10 +860,12 @@ export const SketchiPlugin: Plugin = (input) => {
             prompt: args.prompt,
           });
 
-          let workingSessionId = resolveSessionCandidate({
+          let sessionCandidate = resolveSessionCandidate({
             explicitSessionId: args.sessionId,
-            opencodeSessionID: context.sessionID,
+            getCachedSessionId: () =>
+              sketchiSessionByOpenCodeSession.get(context.sessionID),
           });
+          let workingSessionId = sessionCandidate.sessionId;
 
           const sceneSeed = await resolveSceneSeed({
             apiBase,
@@ -833,15 +879,27 @@ export const SketchiPlugin: Plugin = (input) => {
           });
 
           if (sceneSeed) {
-            const seeded = await seedSessionFromScene({
-              apiBase,
-              authorizationHeader,
-              traceId,
-              sessionId: workingSessionId,
-              scene: sceneSeed,
-              abort: context.abort,
+            const seeded = await withRecoveredCachedSession({
+              sessionCandidate,
+              clearCachedSession: () =>
+                clearCachedSketchiSession(context.sessionID),
+              explicitSessionErrorMessage:
+                "Provided Sketchi sessionId was not found. Omit sessionId or provide scene input to start a new diagram.",
+              call: async (sessionId) =>
+                await seedSessionFromScene({
+                  apiBase,
+                  authorizationHeader,
+                  traceId,
+                  sessionId,
+                  scene: sceneSeed,
+                  abort: context.abort,
+                }),
             });
             workingSessionId = seeded.sessionId;
+            sessionCandidate = {
+              sessionId: seeded.sessionId,
+              source: "explicit",
+            };
           }
 
           if (!workingSessionId) {
@@ -850,15 +908,32 @@ export const SketchiPlugin: Plugin = (input) => {
             );
           }
 
-          const runResult = await runThreadPrompt({
-            apiBase,
-            authorizationHeader,
-            traceId,
-            sessionId: workingSessionId,
-            prompt: `Structural restructure request:\\n${args.prompt}`,
-            promptMessageId,
-            abort: context.abort,
-            timeoutMs: Math.max(serverTimeoutMs, DEFAULT_THREAD_RUN_TIMEOUT_MS),
+          const runResult = await withRecoveredCachedSession({
+            sessionCandidate:
+              workingSessionId === sessionCandidate.sessionId
+                ? sessionCandidate
+                : {
+                    sessionId: workingSessionId,
+                    source: "explicit",
+                  },
+            clearCachedSession: () =>
+              clearCachedSketchiSession(context.sessionID),
+            explicitSessionErrorMessage:
+              "Provided Sketchi sessionId was not found. Supply an existing sessionId, shareUrl, or excalidraw input.",
+            call: async (sessionId) =>
+              await runThreadPrompt({
+                apiBase,
+                authorizationHeader,
+                traceId,
+                sessionId,
+                prompt: `Structural restructure request:\\n${args.prompt}`,
+                promptMessageId,
+                abort: context.abort,
+                timeoutMs: Math.max(
+                  serverTimeoutMs,
+                  DEFAULT_THREAD_RUN_TIMEOUT_MS
+                ),
+              }),
           });
 
           if (runResult.status !== "persisted") {
@@ -1193,8 +1268,36 @@ export const SketchiPlugin: Plugin = (input) => {
       loader(getAuth) {
         getAuthorizationHeader = async () => {
           const auth = await getAuth();
+          if (!isOAuthAuth(auth)) {
+            return (
+              resolveAuthorizationHeaderFromAuth(auth) ?? envAuthorizationHeader
+            );
+          }
+
+          let effectiveAuth = auth;
+          if (accessTokenExpired(effectiveAuth)) {
+            const refreshed = await refreshSketchiAccessToken({
+              apiBase,
+              auth: effectiveAuth,
+              client: input.client,
+              traceId: createToolTraceId(),
+            });
+
+            if (refreshed) {
+              effectiveAuth = refreshed;
+            } else {
+              if (envAuthorizationHeader) {
+                return envAuthorizationHeader;
+              }
+              throw new Error(
+                "Sketchi OAuth is expired or invalid. Run `opencode auth login --provider sketchi`."
+              );
+            }
+          }
+
           return (
-            resolveAuthorizationHeaderFromAuth(auth) ?? envAuthorizationHeader
+            resolveAuthorizationHeaderFromAuth(effectiveAuth) ??
+            envAuthorizationHeader
           );
         };
         return Promise.resolve({});
@@ -1264,7 +1367,7 @@ export const SketchiPlugin: Plugin = (input) => {
 
                   return {
                     type: "success" as const,
-                    refresh: pollResult.accessToken,
+                    refresh: pollResult.refreshToken,
                     access: pollResult.accessToken,
                     expires:
                       pollResult.accessTokenExpiresAt ??

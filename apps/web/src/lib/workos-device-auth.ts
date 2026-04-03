@@ -15,6 +15,7 @@ interface WorkOsDeviceStartSuccess {
 interface WorkOsTokenSuccess {
   access_token: string;
   expires_in?: number;
+  refresh_token: string;
 }
 
 interface WorkOsTokenError {
@@ -142,6 +143,7 @@ export async function pollWorkOsDeviceFlow(input: {
   | {
       status: "success";
       accessToken: string;
+      refreshToken: string;
       accessTokenExpiresAt?: number;
     }
   | {
@@ -167,7 +169,7 @@ export async function pollWorkOsDeviceFlow(input: {
 
   const payload = await parseJsonResponse(response);
   if (response.ok) {
-    if (!("access_token" in payload)) {
+    if (!("access_token" in payload && "refresh_token" in payload)) {
       throw new Error("Unexpected WorkOS token response");
     }
 
@@ -179,6 +181,7 @@ export async function pollWorkOsDeviceFlow(input: {
     return {
       status: "success",
       accessToken: payload.access_token,
+      refreshToken: payload.refresh_token,
       accessTokenExpiresAt,
     };
   }
@@ -218,6 +221,78 @@ export async function pollWorkOsDeviceFlow(input: {
     getErrorMessage({
       payload,
       fallback: "Failed to poll WorkOS device flow",
+    })
+  );
+}
+
+export async function refreshWorkOsAccessToken(input: {
+  refreshToken: string;
+  organizationId?: string;
+  ipAddress?: string;
+  userAgent?: string;
+}): Promise<
+  | {
+      status: "success";
+      accessToken: string;
+      refreshToken: string;
+      accessTokenExpiresAt?: number;
+    }
+  | {
+      status: "invalid_grant";
+    }
+> {
+  const clientId = getWorkOsClientId();
+  const response = await fetch(
+    `${resolveWorkOsBaseUrl()}/user_management/authenticate`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        grant_type: "refresh_token",
+        client_id: clientId,
+        refresh_token: input.refreshToken,
+        organization_id: input.organizationId,
+        ip_address: input.ipAddress,
+        user_agent: input.userAgent,
+      }),
+      cache: "no-store",
+    }
+  );
+
+  const payload = await parseJsonResponse(response);
+  if (response.ok) {
+    if (!("access_token" in payload && "refresh_token" in payload)) {
+      throw new Error("Unexpected WorkOS refresh response");
+    }
+
+    const accessTokenExpiresAt =
+      typeof payload.expires_in === "number"
+        ? Date.now() + Math.max(1, payload.expires_in) * 1000
+        : undefined;
+
+    return {
+      status: "success",
+      accessToken: payload.access_token,
+      refreshToken: payload.refresh_token,
+      accessTokenExpiresAt,
+    };
+  }
+
+  if (
+    "error" in payload &&
+    (payload.error === "invalid_grant" ||
+      payload.error === "access_denied" ||
+      payload.error === "expired_token")
+  ) {
+    return { status: "invalid_grant" };
+  }
+
+  throw new Error(
+    getErrorMessage({
+      payload,
+      fallback: "Failed to refresh WorkOS access token",
     })
   );
 }

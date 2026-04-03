@@ -91,15 +91,32 @@ function withDeviceAuthPaths(spec: unknown): unknown {
     },
     DeviceAuthTokenSuccessResponse: {
       type: "object",
-      required: ["status", "accessToken"],
+      required: ["status", "accessToken", "refreshToken"],
       properties: {
         status: { type: "string", enum: ["success"] },
         accessToken: { type: "string" },
+        refreshToken: { type: "string" },
         accessTokenExpiresAt: {
           type: "integer",
           description:
             "Unix ms timestamp when returned token expires, when available.",
         },
+      },
+      additionalProperties: false,
+    },
+    DeviceAuthRefreshRequest: {
+      type: "object",
+      required: ["refreshToken"],
+      properties: {
+        refreshToken: { type: "string" },
+      },
+      additionalProperties: false,
+    },
+    DeviceAuthRefreshInvalidGrantResponse: {
+      type: "object",
+      required: ["status"],
+      properties: {
+        status: { type: "string", enum: ["invalid_grant"] },
       },
       additionalProperties: false,
     },
@@ -278,12 +295,87 @@ function withDeviceAuthPaths(spec: unknown): unknown {
         },
       },
     },
+    "/auth/refresh": {
+      post: {
+        tags: ["Device Auth"],
+        summary: "Refresh access token",
+        description:
+          "Exchanges a stored WorkOS refresh token for a new access token and rotated refresh token. This endpoint does not require user bearer auth.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/DeviceAuthRefreshRequest",
+              },
+              example: {
+                refreshToken: "workos_refresh_token",
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Refresh result.",
+            headers: {
+              "x-trace-id": {
+                schema: { type: "string" },
+              },
+            },
+            content: {
+              "application/json": {
+                schema: {
+                  oneOf: [
+                    {
+                      $ref: "#/components/schemas/DeviceAuthTokenSuccessResponse",
+                    },
+                    {
+                      $ref: "#/components/schemas/DeviceAuthRefreshInvalidGrantResponse",
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          400: {
+            description: "Invalid request payload.",
+            headers: {
+              "x-trace-id": {
+                schema: { type: "string" },
+              },
+            },
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/DeviceAuthErrorResponse",
+                },
+              },
+            },
+          },
+          500: {
+            description: "Failed to refresh access token.",
+            headers: {
+              "x-trace-id": {
+                schema: { type: "string" },
+              },
+            },
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/DeviceAuthErrorResponse",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   } satisfies Record<string, unknown>;
 
   const existingDescription = document.info?.description ?? "";
   const notes = [
     existingDescription,
-    "Device auth endpoints are included for CLI integrations (`/auth/device/start`, `/auth/device/token`).",
+    "Device auth endpoints are included for CLI integrations (`/auth/device/start`, `/auth/device/token`, `/auth/refresh`).",
   ]
     .filter(Boolean)
     .join(" ");
