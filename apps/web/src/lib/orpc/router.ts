@@ -66,6 +66,7 @@ export function createOrpcContext(
 const orpc = os.$context<OrpcContext>();
 
 type PublicErrorReason =
+  | "NOT_FOUND"
   | "UNAUTHORIZED"
   | "AI_NO_OUTPUT"
   | "AI_PROVIDER_ERROR"
@@ -83,6 +84,10 @@ function classifyError(error: unknown): {
     const message = error.message;
     const name = error.name;
     const lower = message.toLowerCase();
+
+    if (lower.includes("session not found")) {
+      return { reason: "NOT_FOUND", message, name };
+    }
 
     if (lower.includes("no output generated")) {
       return { reason: "AI_NO_OUTPUT", message, name };
@@ -150,6 +155,19 @@ function throwInternalError(params: {
         traceId: params.traceId,
         stage: params.stage,
         action: params.action,
+      },
+    });
+  }
+
+  if (reason === "NOT_FOUND") {
+    throw new ORPCError("NOT_FOUND", {
+      message: `${params.action} could not find the requested diagram session. traceId=${params.traceId}`,
+      data: {
+        traceId: params.traceId,
+        stage: params.stage,
+        action: params.action,
+        errorName: name,
+        errorMessage: message.slice(0, 600),
       },
     });
   }

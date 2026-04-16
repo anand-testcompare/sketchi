@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   pollWorkOsDeviceFlow,
+  refreshWorkOsAccessToken,
   startWorkOsDeviceFlow,
 } from "./workos-device-auth";
 
@@ -119,6 +120,7 @@ describe("workos-device-auth", () => {
       new Response(
         JSON.stringify({
           access_token: "access-token-123",
+          refresh_token: "refresh-token-123",
           expires_in: 3600,
         }),
         { status: 200 }
@@ -136,10 +138,57 @@ describe("workos-device-auth", () => {
     }
 
     expect(result.accessToken).toBe("access-token-123");
+    expect(result.refreshToken).toBe("refresh-token-123");
     expect(result.accessTokenExpiresAt).toBeDefined();
     expect(result.accessTokenExpiresAt).toBeGreaterThanOrEqual(
       before + 3_599_000
     );
     expect(result.accessTokenExpiresAt).toBeLessThanOrEqual(after + 3_601_000);
+  });
+
+  it("refreshWorkOsAccessToken maps successful refresh payload", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          access_token: "next-access-token",
+          refresh_token: "next-refresh-token",
+          expires_in: 1800,
+        }),
+        { status: 200 }
+      )
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const before = Date.now();
+    const result = await refreshWorkOsAccessToken({
+      refreshToken: "stored-refresh-token",
+    });
+    const after = Date.now();
+
+    expect(result.status).toBe("success");
+    if (result.status !== "success") {
+      return;
+    }
+
+    expect(result.accessToken).toBe("next-access-token");
+    expect(result.refreshToken).toBe("next-refresh-token");
+    expect(result.accessTokenExpiresAt).toBeDefined();
+    expect(result.accessTokenExpiresAt).toBeGreaterThanOrEqual(
+      before + 1_799_000
+    );
+    expect(result.accessTokenExpiresAt).toBeLessThanOrEqual(after + 1_801_000);
+  });
+
+  it("refreshWorkOsAccessToken maps invalid_grant payloads", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: "invalid_grant" }), {
+        status: 400,
+      })
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(
+      refreshWorkOsAccessToken({ refreshToken: "stale-refresh-token" })
+    ).resolves.toEqual({ status: "invalid_grant" });
   });
 });
