@@ -98,7 +98,7 @@ jobs:
 
       - name: Install Playwright browsers
         if: steps.doc_check.outputs.run_tests == 'true'
-        run: bunx playwright install --with-deps
+        run: ./packages/backend/node_modules/.bin/playwright install --with-deps
 
       - name: Install Venom
         if: steps.doc_check.outputs.run_tests == 'true'
