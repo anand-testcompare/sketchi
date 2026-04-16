@@ -567,7 +567,7 @@ async function fetchLinkSharing(sceneId: string): Promise<number | undefined> {
       fields?: { linkSharing?: { integerValue?: string } };
     };
     const raw = json.fields?.linkSharing?.integerValue;
-    const value = raw != null ? Number(raw) : Number.NaN;
+    const value = raw == null ? Number.NaN : Number(raw);
     return Number.isFinite(value) ? value : undefined;
   } catch {
     return undefined;
