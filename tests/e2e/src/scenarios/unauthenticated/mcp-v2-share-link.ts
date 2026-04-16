@@ -24,8 +24,8 @@ Success:
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { chromium } from "@playwright/test";
 import { parseExcalidrawShareLink } from "@sketchi/shared";
-import { chromium } from "playwright";
 
 const FIXTURE_PATH = join(
   import.meta.dir,

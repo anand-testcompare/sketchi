@@ -306,9 +306,9 @@ export function DiagramListItem({
                 Created {createdLabel}
               </span>
             ) : null}
-            {item.latestSceneVersion !== null ? (
+            {item.latestSceneVersion === null ? null : (
               <span>v{item.latestSceneVersion}</span>
-            ) : null}
+            )}
             <span>{originLabel}</span>
           </div>
 

@@ -272,17 +272,17 @@ async function main() {
     await sleep(1200);
     await addCanvasElement(pageB);
 
-    if (versionAValue !== null) {
+    if (versionAValue === null) {
+      const savedA2 = await waitForSaveStatus(pageA, "Saved", 35_000);
+      if (!savedA2) {
+        throw new Error("Tab A second save did not complete.");
+      }
+    } else {
       const advanced = await waitForVersionAtLeast(pageA, versionAValue + 1);
       if (!advanced) {
         throw new Error(
           `Tab A version did not advance to >= v${versionAValue + 1}.`
         );
-      }
-    } else {
-      const savedA2 = await waitForSaveStatus(pageA, "Saved", 35_000);
-      if (!savedA2) {
-        throw new Error("Tab A second save did not complete.");
       }
     }
     const versionA2 = await getTestIdText(pageA, "diagram-session-version");
