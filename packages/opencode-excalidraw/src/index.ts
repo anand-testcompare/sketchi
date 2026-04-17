@@ -72,6 +72,7 @@ interface SessionSeedResponse {
 interface ExcalidrawSceneSeed {
   appState: Record<string, unknown>;
   elements: Record<string, unknown>[];
+  files?: Record<string, unknown>;
 }
 
 function toBearerHeaderValue(value: string): string {
@@ -291,6 +292,7 @@ async function seedSessionFromScene(input: {
         sessionId: input.sessionId,
         elements: input.scene.elements,
         appState: input.scene.appState,
+        files: input.scene.files,
         traceId: input.traceId,
       }),
     },
@@ -306,6 +308,7 @@ async function resolveSceneSeed(input: {
   excalidraw?: {
     elements: Record<string, unknown>[];
     appState?: Record<string, unknown>;
+    files?: Record<string, unknown>;
   };
   excalidrawPath?: string;
   shareUrl?: string;
@@ -315,6 +318,7 @@ async function resolveSceneSeed(input: {
     return {
       elements: input.excalidraw.elements,
       appState: input.excalidraw.appState ?? {},
+      files: input.excalidraw.files,
     };
   }
 
@@ -326,6 +330,7 @@ async function resolveSceneSeed(input: {
     return {
       elements: parsed.elements,
       appState: parsed.appState ?? {},
+      files: parsed.files,
     };
   }
 

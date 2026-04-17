@@ -20,6 +20,7 @@ export interface DiagramListCard {
   previewScene: {
     appState: Record<string, unknown>;
     elements: Record<string, unknown>[];
+    files?: Record<string, unknown>;
   } | null;
   sessionId: string;
   source: DiagramListSource;
@@ -193,6 +194,7 @@ function DiagramTitleEditor({
         value={value}
       />
       <Button
+        aria-label="Save diagram title"
         disabled={isSavingTitle}
         onClick={(event) => {
           event.preventDefault();
@@ -205,6 +207,7 @@ function DiagramTitleEditor({
         <Check className="size-3.5" />
       </Button>
       <Button
+        aria-label="Cancel renaming diagram"
         disabled={isSavingTitle}
         onClick={(event) => {
           event.preventDefault();
@@ -216,6 +219,78 @@ function DiagramTitleEditor({
       >
         <X className="size-3.5" />
       </Button>
+    </div>
+  );
+}
+
+function DiagramCardContent({
+  contextLabel,
+  createdLabel,
+  item,
+  originLabel,
+  title,
+  typeLabel,
+  updatedLabel,
+}: {
+  contextLabel: string;
+  createdLabel: string | null;
+  item: DiagramListCard;
+  originLabel: string;
+  title: React.ReactNode;
+  typeLabel: string | null;
+  updatedLabel: string | null;
+}) {
+  return (
+    <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-stretch sm:gap-4 sm:p-4">
+      <div className="order-2 min-w-0 flex-1 sm:order-1">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1.5">
+            {title}
+
+            <div className="flex flex-wrap items-center gap-2">
+              <SourceBadge source={item.source} />
+              {typeLabel ? (
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+                  {typeLabel}
+                </span>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        <p className="mt-2 line-clamp-1 text-muted-foreground text-sm">
+          {contextLabel}
+        </p>
+
+        <div className="mt-2 flex flex-wrap items-center gap-3 text-muted-foreground text-xs">
+          {updatedLabel ? (
+            <span className="inline-flex items-center gap-1">
+              <Clock className="size-3" />
+              Updated {updatedLabel}
+            </span>
+          ) : null}
+          {createdLabel ? (
+            <span className="inline-flex items-center gap-1">
+              <CalendarClock className="size-3" />
+              Created {createdLabel}
+            </span>
+          ) : null}
+          {item.latestSceneVersion === null ? null : (
+            <span>v{item.latestSceneVersion}</span>
+          )}
+          <span>{originLabel}</span>
+        </div>
+
+        <div className="mt-2 flex items-center gap-2">
+          <span className="inline-flex items-center rounded-md border border-border px-2 py-1 font-medium text-xs transition-colors group-hover:bg-muted">
+            Open Diagram
+          </span>
+        </div>
+      </div>
+
+      <div className="order-1 h-28 overflow-hidden rounded-xl border bg-muted/20 sm:order-2 sm:h-auto sm:w-56">
+        <DiagramScenePreview scene={item.hasScene ? item.previewScene : null} />
+      </div>
     </div>
   );
 }
@@ -241,109 +316,83 @@ export function DiagramListItem({
 
   return (
     <li
-      className="group rounded-2xl border-2 bg-card shadow-sm transition-colors hover:bg-muted/20"
+      className="group relative rounded-2xl border-2 bg-card shadow-sm transition-colors hover:bg-muted/20"
       data-testid="diagram-recents-item"
       key={item.sessionId}
     >
-      <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-stretch sm:gap-4 sm:p-4">
-        <div className="order-2 min-w-0 flex-1 sm:order-1">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 space-y-1.5">
-              {isEditing ? (
-                <DiagramTitleEditor
-                  isSavingTitle={isSavingTitle}
-                  onCancel={onCancelRename}
-                  onChange={onEditingTitleChange}
-                  onSave={() => onSaveRename(item.sessionId)}
-                  value={editingTitle}
-                />
-              ) : (
-                <h3 className="truncate font-semibold text-base leading-tight">
-                  {item.title}
-                </h3>
-              )}
+      {canRename ? (
+        <Button
+          aria-label={`Rename ${item.title}`}
+          className="absolute top-3 right-3 z-10 text-muted-foreground opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+          onClick={(event) => {
+            event.preventDefault();
+            onStartRename(item);
+          }}
+          size="icon-xs"
+          type="button"
+          variant="ghost"
+        >
+          <Pencil className="size-3" />
+        </Button>
+      ) : null}
 
-              <div className="flex flex-wrap items-center gap-2">
-                <SourceBadge source={item.source} />
-                {typeLabel ? (
-                  <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-                    {typeLabel}
-                  </span>
-                ) : null}
-              </div>
-            </div>
+      {item.localOnly ? (
+        <Button
+          aria-label={`Remove local recent ${item.title}`}
+          className="absolute top-3 right-3 z-10 text-muted-foreground"
+          onClick={(event) => {
+            event.preventDefault();
+            onRemoveLocalRecent(item.sessionId);
+          }}
+          size="icon-xs"
+          type="button"
+          variant="ghost"
+        >
+          <X className="size-3" />
+        </Button>
+      ) : null}
 
-            {canRename ? (
-              <Button
-                className="text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
-                onClick={(event) => {
-                  event.preventDefault();
-                  onStartRename(item);
-                }}
-                size="icon-xs"
-                type="button"
-                variant="ghost"
-              >
-                <Pencil className="size-3" />
-              </Button>
-            ) : null}
-          </div>
-
-          <p className="mt-2 line-clamp-1 text-muted-foreground text-sm">
-            {contextLabel}
-          </p>
-
-          <div className="mt-2 flex flex-wrap items-center gap-3 text-muted-foreground text-xs">
-            {updatedLabel ? (
-              <span className="inline-flex items-center gap-1">
-                <Clock className="size-3" />
-                Updated {updatedLabel}
-              </span>
-            ) : null}
-            {createdLabel ? (
-              <span className="inline-flex items-center gap-1">
-                <CalendarClock className="size-3" />
-                Created {createdLabel}
-              </span>
-            ) : null}
-            {item.latestSceneVersion === null ? null : (
-              <span>v{item.latestSceneVersion}</span>
-            )}
-            <span>{originLabel}</span>
-          </div>
-
-          <div className="mt-2 flex items-center gap-2">
-            <Link
-              className="inline-flex items-center rounded-md border border-border px-2 py-1 font-medium text-xs transition-colors hover:bg-muted"
-              href={`/diagrams/${item.sessionId}` as never}
-              onClick={() => onOpen(item.sessionId)}
-            >
-              Open diagram
-            </Link>
-
-            {item.localOnly ? (
-              <Button
-                className="text-muted-foreground"
-                onClick={(event) => {
-                  event.preventDefault();
-                  onRemoveLocalRecent(item.sessionId);
-                }}
-                size="icon-xs"
-                type="button"
-                variant="ghost"
-              >
-                <X className="size-3" />
-              </Button>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="order-1 h-28 overflow-hidden rounded-xl border bg-muted/20 sm:order-2 sm:h-auto sm:w-56">
-          <DiagramScenePreview
-            scene={item.hasScene ? item.previewScene : null}
+      {isEditing ? (
+        <DiagramCardContent
+          contextLabel={contextLabel}
+          createdLabel={createdLabel}
+          item={item}
+          originLabel={originLabel}
+          title={
+            <DiagramTitleEditor
+              isSavingTitle={isSavingTitle}
+              onCancel={onCancelRename}
+              onChange={onEditingTitleChange}
+              onSave={() => onSaveRename(item.sessionId)}
+              value={editingTitle}
+            />
+          }
+          typeLabel={typeLabel}
+          updatedLabel={updatedLabel}
+        />
+      ) : (
+        <Link
+          aria-label={`Open diagram ${item.title}`}
+          className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          data-testid="diagram-recents-open-link"
+          href={`/diagrams/${item.sessionId}` as never}
+          onClick={() => onOpen(item.sessionId)}
+        >
+          <DiagramCardContent
+            contextLabel={contextLabel}
+            createdLabel={createdLabel}
+            item={item}
+            originLabel={originLabel}
+            title={
+              <h3 className="truncate font-semibold text-base leading-tight">
+                {item.title}
+              </h3>
+            }
+            typeLabel={typeLabel}
+            updatedLabel={updatedLabel}
           />
-        </div>
-      </div>
+        </Link>
+      )}
     </li>
   );
 }

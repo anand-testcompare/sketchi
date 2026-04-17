@@ -4,6 +4,8 @@ import {
   AlertTriangle,
   ArrowDown,
   Loader2,
+  PanelRightClose,
+  PanelRightOpen,
   Send,
   Square,
   Wrench,
@@ -21,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 const DRAFT_KEY_PREFIX = "sketchi.diagramDraft.v1";
+const SIDEBAR_COLLAPSED_KEY = "sketchi.diagramChatSidebarCollapsed.v1";
 const AUTO_SCROLL_BOTTOM_OFFSET_PX = 32;
 
 type RunStatus =
@@ -153,6 +156,7 @@ export function ChatSidebar({
 }: ChatSidebarProps) {
   const [input, setInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [showScrollToLatest, setShowScrollToLatest] = useState(false);
 
   const isCanvasEmpty = nonDeletedElementCount === 0;
@@ -171,6 +175,26 @@ export function ChatSidebar({
     }
     return `${messages.length}:${last.messageId}:${last.updatedAt}:${last.content.length}:${last.status ?? ""}`;
   }, [messages]);
+
+  useEffect(() => {
+    try {
+      setIsCollapsed(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1");
+    } catch {
+      // ignore localStorage failures
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (isCollapsed) {
+        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, "1");
+      } else {
+        localStorage.removeItem(SIDEBAR_COLLAPSED_KEY);
+      }
+    } catch {
+      // ignore localStorage failures
+    }
+  }, [isCollapsed]);
 
   useEffect(() => {
     const key = draftStorageKey(sessionId);
@@ -300,13 +324,58 @@ export function ChatSidebar({
     });
   }, []);
 
+  if (isCollapsed) {
+    return (
+      <aside
+        className="flex h-full w-14 min-w-14 flex-col items-center border-l bg-background"
+        data-testid="diagram-chat-sidebar"
+      >
+        <div className="flex w-full justify-center border-b px-2 py-3">
+          <Button
+            aria-label="Expand AI sidebar"
+            onClick={() => setIsCollapsed(false)}
+            size="icon-sm"
+            title="Expand AI sidebar"
+            type="button"
+            variant="ghost"
+          >
+            <PanelRightOpen className="size-4" />
+          </Button>
+        </div>
+
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 text-muted-foreground">
+          {getStatusIcon(activeStatus, runActive)}
+          <span className="-rotate-90 select-none font-medium text-[10px] uppercase tracking-[0.24em]">
+            AI
+          </span>
+          {showCompletionPulse ? (
+            <span className="size-2 rounded-full bg-emerald-500" />
+          ) : null}
+        </div>
+      </aside>
+    );
+  }
+
   return (
     <aside
       className="flex h-full w-96 min-w-80 max-w-[32rem] flex-col border-l bg-background"
       data-testid="diagram-chat-sidebar"
     >
-      <header className="border-b px-4 py-3" data-testid="diagram-chat-header">
+      <header
+        className="flex items-center justify-between gap-2 border-b px-4 py-3"
+        data-testid="diagram-chat-header"
+      >
         <h2 className="font-semibold text-sm">AI Assistant</h2>
+        <Button
+          aria-label="Collapse AI sidebar"
+          onClick={() => setIsCollapsed(true)}
+          size="icon-sm"
+          title="Collapse AI sidebar"
+          type="button"
+          variant="ghost"
+        >
+          <PanelRightClose className="size-4" />
+        </Button>
       </header>
 
       {!isCanvasEmpty && (

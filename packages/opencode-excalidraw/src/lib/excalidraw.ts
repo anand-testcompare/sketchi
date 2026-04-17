@@ -18,6 +18,7 @@ const SHAPE_TYPES = new Set([
 export interface ExcalidrawFile {
   appState: Record<string, unknown>;
   elements: Record<string, unknown>[];
+  files?: Record<string, unknown>;
 }
 
 interface Bounds {
@@ -63,6 +64,7 @@ export async function readExcalidrawFile(
   return {
     elements: data.elements,
     appState: data.appState ?? {},
+    files: data.files,
   };
 }
 

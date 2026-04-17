@@ -104,6 +104,64 @@ describe("diagramSessions", () => {
     expect(session2?.latestScene?.elements).toHaveLength(2);
   });
 
+  test("setLatestScene persists files and list previews include referenced file payloads", async () => {
+    const { sessionId } = await authed.mutation(api.diagramSessions.create, {});
+    const fileId = "file-svg-1";
+    const files = {
+      [fileId]: {
+        id: fileId,
+        dataURL: "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=",
+        mimeType: "image/svg+xml",
+        created: 1,
+        lastRetrieved: 1,
+        status: "saved",
+      },
+      unused: {
+        id: "unused",
+        dataURL: "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=",
+        mimeType: "image/svg+xml",
+        created: 1,
+        lastRetrieved: 1,
+        status: "saved",
+      },
+    };
+
+    const result = await authed.mutation(api.diagramSessions.setLatestScene, {
+      sessionId,
+      expectedVersion: 0,
+      elements: [
+        {
+          id: "image-1",
+          type: "image",
+          x: 0,
+          y: 0,
+          width: 48,
+          height: 48,
+          fileId,
+        },
+      ],
+      appState: { viewBackgroundColor: "#ffffff" },
+      files,
+    });
+
+    expect(result.status).toBe("success");
+
+    const session = await authed.query(api.diagramSessions.get, { sessionId });
+    expect(session?.latestScene?.files).toEqual(files);
+
+    const listed = await authed.query(api.diagramSessions.listMine, {
+      limit: 10,
+      previewCount: 1,
+    });
+    const preview = listed.find(
+      (item) => item.sessionId === sessionId
+    )?.previewScene;
+
+    expect(preview?.files).toEqual({
+      [fileId]: files[fileId],
+    });
+  });
+
   test("setLatestScene conflict returns structured result without clobbering", async () => {
     const { sessionId } = await authed.mutation(api.diagramSessions.create, {});
 

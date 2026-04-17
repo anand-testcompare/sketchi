@@ -1,6 +1,9 @@
 "use client";
 
-import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
+import type {
+  BinaryFiles,
+  ExcalidrawImperativeAPI,
+} from "@excalidraw/excalidraw/types";
 import { api } from "@sketchi/backend/convex/_generated/api";
 import { useAuth } from "@workos-inc/authkit-nextjs/components";
 import { useMutation, useQuery } from "convex/react";
@@ -54,6 +57,37 @@ interface RunState {
   promptMessageId: string;
   status: RunStatus;
   stopRequested: boolean;
+}
+
+type StoredSceneFiles = Record<string, unknown>;
+
+function normalizeSceneFiles(
+  files: BinaryFiles | StoredSceneFiles | null | undefined
+): StoredSceneFiles | undefined {
+  if (!files) {
+    return undefined;
+  }
+
+  const entries = Object.entries(files);
+  if (entries.length < 1) {
+    return undefined;
+  }
+
+  return Object.fromEntries(entries);
+}
+
+function createSceneFingerprint(input: {
+  elements: readonly Record<string, unknown>[];
+  files?: BinaryFiles | StoredSceneFiles | null;
+}): string {
+  const elementFingerprint = input.elements
+    .map(
+      (element) =>
+        `${element.id}:${element.version}:${element.versionNonce}:${element.isDeleted ?? false}`
+    )
+    .join("|");
+  const files = normalizeSceneFiles(input.files);
+  return `${elementFingerprint}::${files ? JSON.stringify(files) : ""}`;
 }
 
 function createOptimisticUserMessage(input: {
@@ -130,10 +164,11 @@ export default function DiagramStudioPage() {
   const knownVersionRef = useRef(0);
   const appliedVersionRef = useRef<number | null>(null);
   const isLocallyDirtyRef = useRef(false);
-  const lastElementsHashRef = useRef("");
+  const lastSceneFingerprintRef = useRef("");
   const pendingSceneRef = useRef<{
     elements: readonly Record<string, unknown>[];
     appState: Record<string, unknown>;
+    files?: StoredSceneFiles;
   } | null>(null);
   const previousRunStatusRef = useRef<RunStatus | null>(null);
 
@@ -218,6 +253,7 @@ export default function DiagramStudioPage() {
     async (
       elements: readonly Record<string, unknown>[],
       appState: Record<string, unknown>,
+      files?: StoredSceneFiles,
       overrideVersion?: number
     ) => {
       if (!sessionId) {
@@ -232,6 +268,7 @@ export default function DiagramStudioPage() {
           expectedVersion: overrideVersion ?? knownVersionRef.current,
           elements: elements as Record<string, unknown>[],
           appState: sanitizeAppState(appState),
+          files,
         });
 
         if (result.status === "success") {
@@ -243,7 +280,7 @@ export default function DiagramStudioPage() {
           pendingSceneRef.current = null;
         } else if (result.status === "conflict") {
           isLocallyDirtyRef.current = true;
-          pendingSceneRef.current = { elements, appState };
+          pendingSceneRef.current = { elements, appState, files };
           setSaveState({
             status: "conflict",
             serverVersion: result.latestSceneVersion,
@@ -278,7 +315,8 @@ export default function DiagramStudioPage() {
   const handleChange = useCallback(
     (
       elements: readonly Record<string, unknown>[],
-      appState: Record<string, unknown>
+      appState: Record<string, unknown>,
+      files: BinaryFiles
     ) => {
       const nonDeleted = elements.filter(
         (element) => element.isDeleted !== true
@@ -289,16 +327,15 @@ export default function DiagramStudioPage() {
         return;
       }
 
-      const hash = elements
-        .map(
-          (element) =>
-            `${element.id}:${element.version}:${element.versionNonce}:${element.isDeleted ?? false}`
-        )
-        .join("|");
-      if (hash === lastElementsHashRef.current) {
+      const normalizedFiles = normalizeSceneFiles(files);
+      const fingerprint = createSceneFingerprint({
+        elements,
+        files: normalizedFiles,
+      });
+      if (fingerprint === lastSceneFingerprintRef.current) {
         return;
       }
-      lastElementsHashRef.current = hash;
+      lastSceneFingerprintRef.current = fingerprint;
       isLocallyDirtyRef.current = true;
 
       if (autosaveTimeoutRef.current) {
@@ -306,7 +343,7 @@ export default function DiagramStudioPage() {
       }
 
       autosaveTimeoutRef.current = setTimeout(() => {
-        saveScene(elements, appState).catch(() => undefined);
+        saveScene(elements, appState, normalizedFiles).catch(() => undefined);
       }, AUTOSAVE_DELAY_MS);
     },
     [autosaveDisabled, isProcessing, saveScene]
@@ -316,6 +353,7 @@ export default function DiagramStudioPage() {
     (input: {
       elements: readonly Record<string, unknown>[];
       appState: Record<string, unknown>;
+      files?: StoredSceneFiles;
       version: number;
     }) => {
       if (!excalidrawApi) {
@@ -323,6 +361,13 @@ export default function DiagramStudioPage() {
       }
 
       suppressOnChangeRef.current = true;
+      excalidrawApi.resetScene({ resetLoadingState: false });
+      const files = Object.values(input.files ?? {});
+      if (files.length > 0) {
+        excalidrawApi.addFiles(
+          files as Parameters<typeof excalidrawApi.addFiles>[0]
+        );
+      }
       excalidrawApi.updateScene({
         elements: input.elements as unknown as Parameters<
           typeof excalidrawApi.updateScene
@@ -332,13 +377,10 @@ export default function DiagramStudioPage() {
         >[0]["appState"],
       });
 
-      const hash = input.elements
-        .map(
-          (element) =>
-            `${element.id}:${element.version}:${element.versionNonce}:${element.isDeleted ?? false}`
-        )
-        .join("|");
-      lastElementsHashRef.current = hash;
+      lastSceneFingerprintRef.current = createSceneFingerprint({
+        elements: input.elements,
+        files: input.files,
+      });
       const nonDeleted = input.elements.filter(
         (element) => element.isDeleted !== true
       ).length;
@@ -366,6 +408,7 @@ export default function DiagramStudioPage() {
             unknown
           >[],
           appState: session.latestScene.appState as Record<string, unknown>,
+          files: session.latestScene.files as StoredSceneFiles | undefined,
           version: session.latestSceneVersion,
         });
       } else {
@@ -407,6 +450,7 @@ export default function DiagramStudioPage() {
         appState: sanitizeAppState(
           excalidrawApi.getAppState() as Record<string, unknown>
         ),
+        files: normalizeSceneFiles(excalidrawApi.getFiles()),
       };
       knownVersionRef.current = version;
       setSaveState({
@@ -422,6 +466,7 @@ export default function DiagramStudioPage() {
         unknown
       >[],
       appState: session.latestScene.appState as Record<string, unknown>,
+      files: session.latestScene.files as StoredSceneFiles | undefined,
       version,
     });
   }, [
@@ -442,6 +487,7 @@ export default function DiagramStudioPage() {
         unknown
       >[],
       appState: session.latestScene.appState as Record<string, unknown>,
+      files: session.latestScene.files as StoredSceneFiles | undefined,
       version: session.latestSceneVersion,
     });
 
@@ -458,6 +504,7 @@ export default function DiagramStudioPage() {
     await saveScene(
       pendingSceneRef.current.elements,
       pendingSceneRef.current.appState,
+      pendingSceneRef.current.files,
       saveState.serverVersion
     );
   }, [saveScene, saveState]);
@@ -701,9 +748,9 @@ export default function DiagramStudioPage() {
         <div className="ml-auto">
           <ImportExportToolbar
             excalidrawApi={excalidrawApi}
-            knownVersionRef={knownVersionRef}
-            saveScene={saveScene}
-            sessionId={sessionId}
+            saveScene={(elements, appState, files) =>
+              saveScene(elements, appState, files)
+            }
             suppressOnChangeRef={suppressOnChangeRef}
           />
         </div>
@@ -758,6 +805,9 @@ export default function DiagramStudioPage() {
                       string,
                       unknown
                     >,
+                    files: session.latestScene.files as
+                      | StoredSceneFiles
+                      | undefined,
                   }
                 : null
             }
