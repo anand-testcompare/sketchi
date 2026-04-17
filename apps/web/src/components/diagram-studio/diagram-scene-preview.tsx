@@ -30,6 +30,7 @@ export function DiagramScenePreview({ scene }: DiagramScenePreviewProps) {
 
     let isCancelled = false;
     let objectUrl: string | null = null;
+    setPreviewUrl(null);
 
     const renderPreview = async () => {
       setIsRendering(true);
