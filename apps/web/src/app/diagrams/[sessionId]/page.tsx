@@ -68,12 +68,37 @@ function normalizeSceneFiles(
     return undefined;
   }
 
-  const entries = Object.entries(files);
-  if (entries.length < 1) {
+  if (Object.keys(files).length < 1) {
     return undefined;
   }
 
-  return Object.fromEntries(entries);
+  return files as StoredSceneFiles;
+}
+
+function createSceneFileFingerprint(
+  files: StoredSceneFiles | undefined
+): string {
+  if (!files) {
+    return "";
+  }
+
+  return Object.entries(files)
+    .sort(([leftId], [rightId]) => leftId.localeCompare(rightId))
+    .map(([fileId, file]) => {
+      const metadata =
+        file && typeof file === "object"
+          ? (file as {
+              created?: unknown;
+              mimeType?: unknown;
+            })
+          : {};
+      const created =
+        typeof metadata.created === "number" ? metadata.created : "na";
+      const mimeType =
+        typeof metadata.mimeType === "string" ? metadata.mimeType : "unknown";
+      return `${fileId}:${mimeType}:${created}`;
+    })
+    .join("|");
 }
 
 function createSceneFingerprint(input: {
@@ -87,7 +112,7 @@ function createSceneFingerprint(input: {
     )
     .join("|");
   const files = normalizeSceneFiles(input.files);
-  return `${elementFingerprint}::${files ? JSON.stringify(files) : ""}`;
+  return `${elementFingerprint}::${createSceneFileFingerprint(files)}`;
 }
 
 function createOptimisticUserMessage(input: {

@@ -55,6 +55,8 @@ export function DiagramScenePreview({ scene }: DiagramScenePreviewProps) {
 
         if (!isCancelled) {
           setPreviewUrl(objectUrl);
+        } else if (objectUrl) {
+          URL.revokeObjectURL(objectUrl);
         }
       } catch {
         if (!isCancelled) {
