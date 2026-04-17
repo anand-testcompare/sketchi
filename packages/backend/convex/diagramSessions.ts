@@ -71,17 +71,23 @@ function hasRenderableElements(elements: unknown[]): boolean {
 function measureSceneBytes(scene: {
   elements: unknown[];
   appState: unknown;
+  files?: Record<string, unknown>;
 }): number {
   const json = JSON.stringify(scene);
   return new TextEncoder().encode(json).byteLength;
 }
 
-function validateSceneSize(scene: { elements: unknown[]; appState: unknown }):
+function validateSceneSize(scene: {
+  elements: unknown[];
+  appState: unknown;
+  files?: Record<string, unknown>;
+}):
   | {
       status: "ok";
       scene: {
         elements: unknown[];
         appState: Record<string, unknown>;
+        files?: Record<string, unknown>;
       };
     }
   | {
@@ -96,6 +102,7 @@ function validateSceneSize(scene: { elements: unknown[]; appState: unknown }):
   const normalizedScene = {
     elements: scene.elements,
     appState: filteredAppState,
+    ...(scene.files ? { files: scene.files } : {}),
   };
   const actualBytes = measureSceneBytes(normalizedScene);
   if (actualBytes > MAX_SCENE_BYTES) {
@@ -111,6 +118,40 @@ function validateSceneSize(scene: { elements: unknown[]; appState: unknown }):
     status: "ok",
     scene: normalizedScene,
   };
+}
+
+function pickSceneFilesForPreview(
+  elements: unknown[],
+  files: Record<string, unknown> | undefined
+): Record<string, unknown> | undefined {
+  if (!files) {
+    return undefined;
+  }
+
+  const usedFileIds = new Set<string>();
+  for (const element of elements) {
+    if (!(element && typeof element === "object")) {
+      continue;
+    }
+    const fileId = (element as { fileId?: unknown }).fileId;
+    if (typeof fileId === "string" && fileId.length > 0) {
+      usedFileIds.add(fileId);
+    }
+  }
+
+  if (usedFileIds.size === 0) {
+    return undefined;
+  }
+
+  const previewFiles: Record<string, unknown> = {};
+  for (const fileId of usedFileIds) {
+    const file = files[fileId];
+    if (file !== undefined) {
+      previewFiles[fileId] = file;
+    }
+  }
+
+  return Object.keys(previewFiles).length > 0 ? previewFiles : undefined;
 }
 
 function truncate(value: string, maxLength: number): string {
@@ -267,6 +308,10 @@ export const listMine = query({
                 MAX_PREVIEW_ELEMENTS
               ),
               appState: session.latestScene.appState,
+              files: pickSceneFilesForPreview(
+                session.latestScene.elements.slice(0, MAX_PREVIEW_ELEMENTS),
+                session.latestScene.files
+              ),
             }
           : null;
 
@@ -332,8 +377,12 @@ export const setLatestScene = mutation({
     expectedVersion: v.number(),
     elements: v.array(v.any()),
     appState: v.record(v.string(), v.any()),
+    files: v.optional(v.record(v.string(), v.any())),
   },
-  handler: async (ctx, { sessionId, expectedVersion, elements, appState }) => {
+  handler: async (
+    ctx,
+    { sessionId, expectedVersion, elements, appState, files }
+  ) => {
     const { user, isAdmin } = await ensureViewerUser(ctx);
 
     const session = await ctx.db
@@ -359,6 +408,7 @@ export const setLatestScene = mutation({
     const sizeChecked = validateSceneSize({
       elements,
       appState: appState as Record<string, unknown>,
+      files: files as Record<string, unknown> | undefined,
     });
     if (sizeChecked.status !== "ok") {
       return {
@@ -394,11 +444,20 @@ export const internalSetLatestSceneFromThreadRun = internalMutation({
     expectedVersion: v.number(),
     elements: v.array(v.any()),
     appState: v.record(v.string(), v.any()),
+    files: v.optional(v.record(v.string(), v.any())),
     diagramType: v.optional(v.string()),
   },
   handler: async (
     ctx,
-    { sessionId, ownerUserId, expectedVersion, elements, appState, diagramType }
+    {
+      sessionId,
+      ownerUserId,
+      expectedVersion,
+      elements,
+      appState,
+      files,
+      diagramType,
+    }
   ) => {
     const session = await ctx.db
       .query("diagramSessions")
@@ -429,6 +488,7 @@ export const internalSetLatestSceneFromThreadRun = internalMutation({
     const sizeChecked = validateSceneSize({
       elements,
       appState: appState as Record<string, unknown>,
+      files: files as Record<string, unknown> | undefined,
     });
     if (sizeChecked.status !== "ok") {
       return {

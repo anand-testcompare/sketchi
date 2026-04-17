@@ -727,6 +727,7 @@ const seedSessionInputSchema = z.object({
   sessionId: z.string().optional(),
   elements: z.array(z.any()),
   appState: z.record(z.string(), z.any()).optional(),
+  files: z.record(z.string(), z.any()).optional(),
   expectedVersion: z.number().int().min(0).optional(),
   traceId: z.string().optional(),
 });
@@ -736,6 +737,7 @@ JSON_SCHEMA_REGISTRY.add(seedSessionInputSchema, {
     {
       elements: exampleElements,
       appState: {},
+      files: {},
     },
   ],
 });
@@ -899,6 +901,7 @@ export const appRouter = {
             expectedVersion,
             elements: input.elements,
             appState: input.appState ?? {},
+            files: input.files,
           }
         );
 

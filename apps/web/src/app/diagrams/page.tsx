@@ -28,6 +28,7 @@ type SessionSource = "opencode" | "sketchi";
 interface SessionPreview {
   appState: Record<string, unknown>;
   elements: Record<string, unknown>[];
+  files?: Record<string, unknown>;
 }
 
 interface CloudDiagram {

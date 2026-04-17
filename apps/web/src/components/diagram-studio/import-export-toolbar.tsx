@@ -1,6 +1,9 @@
 "use client";
 
-import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
+import type {
+  BinaryFiles,
+  ExcalidrawImperativeAPI,
+} from "@excalidraw/excalidraw/types";
 import { api } from "@sketchi/backend/convex/_generated/api";
 import { useAction } from "convex/react";
 import {
@@ -29,12 +32,11 @@ import { Input } from "@/components/ui/input";
 
 interface ImportExportToolbarProps {
   excalidrawApi: ExcalidrawImperativeAPI | null;
-  knownVersionRef: React.RefObject<number>;
   saveScene: (
     elements: readonly Record<string, unknown>[],
-    appState: Record<string, unknown>
+    appState: Record<string, unknown>,
+    files?: Record<string, unknown>
   ) => Promise<void>;
-  sessionId: string;
   suppressOnChangeRef: React.RefObject<boolean>;
 }
 
@@ -78,17 +80,21 @@ export function ImportExportToolbar({
 
     try {
       const result = await parseDiagram({ shareUrl: url });
-
-      suppressOnChangeRef.current = true;
-
-      excalidrawApi.updateScene({
-        elements: result.elements as unknown as Parameters<
-          typeof excalidrawApi.updateScene
-        >[0]["elements"],
-      });
-
       const elements = result.elements as readonly Record<string, unknown>[];
       const appState = (result.appState ?? {}) as Record<string, unknown>;
+
+      suppressOnChangeRef.current = true;
+      excalidrawApi.resetScene({ resetLoadingState: false });
+
+      excalidrawApi.updateScene({
+        elements: elements as unknown as Parameters<
+          typeof excalidrawApi.updateScene
+        >[0]["elements"],
+        appState: appState as Parameters<
+          typeof excalidrawApi.updateScene
+        >[0]["appState"],
+      });
+
       await saveScene(elements, appState);
 
       setImportState({ status: "success" });
@@ -154,7 +160,7 @@ export function ImportExportToolbar({
     }
   }, [excalidrawApi, shareDiagram]);
 
-  const handleExportExcalidraw = useCallback(() => {
+  const handleExportExcalidraw = useCallback(async () => {
     if (!excalidrawApi) {
       return;
     }
@@ -162,23 +168,16 @@ export function ImportExportToolbar({
     setExportState({ status: "loading", format: "excalidraw" });
 
     try {
+      const { serializeAsJSON } = await import("@excalidraw/excalidraw");
       const elements = excalidrawApi.getSceneElements();
       const appState = excalidrawApi.getAppState();
-
-      const data = {
-        type: "excalidraw",
-        version: 2,
-        source: "sketchi",
+      const files = excalidrawApi.getFiles();
+      const json = serializeAsJSON(
         elements,
-        appState: {
-          viewBackgroundColor:
-            (appState as Record<string, unknown>).viewBackgroundColor ??
-            "#ffffff",
-          gridSize: (appState as Record<string, unknown>).gridSize ?? null,
-        },
-      };
-
-      const json = JSON.stringify(data, null, 2);
+        appState,
+        files as BinaryFiles,
+        "local"
+      );
       const blob = new Blob([json], { type: "application/json" });
       const url = URL.createObjectURL(blob);
 

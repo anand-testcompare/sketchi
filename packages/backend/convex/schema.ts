@@ -98,6 +98,7 @@ export default defineSchema({
       v.object({
         elements: v.array(v.any()),
         appState: v.any(),
+        files: v.optional(v.record(v.string(), v.any())),
       })
     ),
     latestSceneVersion: v.number(),
